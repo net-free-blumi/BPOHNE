@@ -76,9 +76,17 @@ async function callGemini(prompt, systemInstruction = "") {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.text) return data.text;
+      const errMsg = data.error || "";
+      if (res.status === 429 || /quota|rate.limit|limit: 0/i.test(errMsg)) {
+        return "המכסה הזמנית של היועץ מלאה. נסה שוב בעוד דקה־שתיים, או פנה אלינו בוואטסאפ – נשמח לעזור! 💬";
+      }
       if (data.error) throw new Error(data.error);
     } catch (error) {
       console.error("AI Error:", error);
+      const msg = error && error.message ? error.message : "";
+      if (msg.includes("quota") || msg.includes("429")) {
+        return "המכסה הזמנית מלאה. נסה שוב בעוד דקה או פנה אלינו בוואטסאפ! 💬";
+      }
       return "משהו השתבש. נשמח לעזור בוואטסאפ! 💬";
     }
   }
@@ -383,7 +391,7 @@ function App() {
     const packagesRef = db.collection("packages");
 
     Promise.all([
-      configRef.get().then((snap) => (snap.exists() ? snap.data() : null)),
+      configRef.get().then((snap) => (snap.exists ? snap.data() : null)),
       packagesRef.get().then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     ])
       .then(([configData, packagesList]) => {
