@@ -1,12 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
   <head>
-    <meta charset="utf-8" />
-    <title>B-Phone תקשורת</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/png" href="./logos/logo-bphone.png" />
-    <meta property="og:title" content="B-Phone תקשורת סלולרית" />
-    <meta property="og:image" content="logos/logo-bphone.png" />
+    <meta charset="utf-8">
+    <title>B-Phone ביפון תקשורת סלולרית - בית שמש - ביתר</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="./logos/logo-bphone.png">
+    <meta property="og:title" content="B-Phone תקשורת סלולרית">
+    <meta property="og:image" content="logos/logo-bphone.png">
 
     <!-- Tailwind via CDN (מתאים לדמו ולפתיחה ישירות מהקובץ) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,11 +17,20 @@
 
     <!-- Babel בדפדפן כדי לתמוך ב־JSX בלי בילד -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Firebase (ענן חינמי) – טעינה רק אם מוגדר ב־firebase-config.js -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="./firebase-config.js"></script>
   </head>
   <body class="bg-slate-50">
     <div id="root"></div>
 
-    <!-- קוד ה־React של האתר (מותאם מ־script.ls, ללא Firebase) -->
+    <!-- כתובת Worker מ-Cloudflare (חינם) – אחרי שתצור Worker מקובץ gemini-worker.js, הדבק כאן -->
+    <script>
+      window.GEMINI_PROXY_URL = ""; // למשל: "https://gemini-proxy.שם-החשבון.workers.dev"
+    </script>
+    <!-- קוד React של האתר -->
     <script type="text/babel" src="./app.jsx" data-presets="react"></script>
   </body>
 </html>

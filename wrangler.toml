@@ -1,0 +1,6 @@
+# Cloudflare Worker – B-Bot Gemini proxy
+name = "gemini-proxy"
+main = "gemini-worker.js"
+compatibility_date = "2024-12-01"
+
+# המפתח GEMINI_API_KEY מוגדר ב-Dashboard: Workers → gemini-proxy → Settings → Variables
