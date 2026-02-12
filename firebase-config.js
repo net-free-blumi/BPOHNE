@@ -1,9 +1,14 @@
 /**
  * Firebase – חיבור לענן (חינמי).
- * הוראות: היכנס ל־ https://console.firebase.google.com
- * צור פרויקט חדש → הוסף אפליקציית Web → העתק את ה־config לכאן.
- * בהמשך: Authentication → התחברות → אפשר "אימייל/סיסמה".
- * צור משתמש (אימייל + סיסמה 1234 או אחר) – איתו תיכנס לניהול האתר.
+ *
+ * מה לעשות באתר Firebase (console.firebase.google.com):
+ * 1. בחר את הפרויקט → Build → Authentication.
+ * 2. Sign-in method: לחץ על "אימייל/סיסמה" והפעל (Enable), שמור.
+ * 3. Sign-in method: לחץ על "Google", הפעל (Enable), בחר אימייל תמיכה, שמור.
+ * 4. (אופציונלי) Authentication → Settings → Authorized domains: וודא שהדומיין שלך ברשימה
+ *    (localhost ו־bphone-4e304.firebaseapp.com כבר שם).
+ *
+ * רק אימיילים שמופיעים ב־ALLOWED_ADMIN_EMAILS ב־app.jsx נחשבים כמנהלים.
  */
 var FIREBASE_CONFIG = {
   apiKey: "AIzaSyD057RSLr9mVBulPH_s7TEuCHt_aaacgq0",

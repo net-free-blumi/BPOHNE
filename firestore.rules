@@ -1,7 +1,7 @@
 rules_version = '2';
+// העתק את כל התוכן ל-Firebase Console → Firestore → Rules → Publish
 service cloud.firestore {
   match /databases/{database}/documents {
-    // כולם יכולים לקרוא (כדי שהאתר יטען)
     match /config/{doc} {
       allow read: if true;
       allow write: if request.auth != null;
