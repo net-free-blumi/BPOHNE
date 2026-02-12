@@ -32,6 +32,10 @@ const MessageCircle = (props) => <IconWrapper {...props}>💬</IconWrapper>;
 const ImageIcon = (props) => <IconWrapper {...props}>🖼️</IconWrapper>;
 
 // --- נתוני דמו לשוק (מותאם מהקובץ המקורי, פברואר 2026) ---
+
+
+
+
 const MARKET_DEALS = [
   {
     provider: "Golan Telecom",
