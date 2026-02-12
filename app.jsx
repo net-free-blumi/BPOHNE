@@ -15,6 +15,23 @@ function isFirebaseActive() {
   return getDb() && getAuth();
 }
 
+// --- ImgBB – העלאת תמונות חינמית (מפתח חינמי: https://api.imgbb.com/) ---
+const IMGBB_API_KEY = typeof window !== "undefined" && window.IMGBB_API_KEY ? window.IMGBB_API_KEY : "";
+
+async function uploadImageToImgBB(file) {
+  if (!IMGBB_API_KEY) return null;
+  const form = new FormData();
+  form.append("key", IMGBB_API_KEY);
+  form.append("image", file);
+  const res = await fetch("https://api.imgbb.com/1/upload", {
+    method: "POST",
+    body: form,
+  });
+  const data = await res.json();
+  if (data && data.data && data.data.url) return data.data.url;
+  throw new Error(data?.error?.message || "ImgBB upload failed");
+}
+
 // --- אייקונים פשוטים במקום lucide-react (מתאימים ל-RTL ולטיילווינד) ---
 const IconWrapper = ({ children, className, size = 20 }) => (
   <span
@@ -389,12 +406,14 @@ function App() {
 
     const configRef = db.doc("config/site");
     const packagesRef = db.collection("packages");
+    const productsRef = db.collection("products");
 
     Promise.all([
       configRef.get().then((snap) => (snap.exists ? snap.data() : null)),
       packagesRef.get().then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      productsRef.get().then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     ])
-      .then(([configData, packagesList]) => {
+      .then(([configData, packagesList, productsList]) => {
         if (configData) {
           setSiteConfig((prev) => ({ ...DEFAULT_CONFIG, ...configData, locations: configData.locations || prev.locations, services: configData.services || prev.services }));
           if (configData.promoMessage) setPromoMessage((prev) => ({ ...prev, ...configData.promoMessage }));
@@ -403,6 +422,9 @@ function App() {
           setPackages(packagesList.sort((a, b) => (a.price || 0) - (b.price || 0)));
         } else {
           setPackages(MARKET_DEALS.map((d, i) => ({ ...d, id: `demo-${i}` })));
+        }
+        if (productsList && productsList.length > 0) {
+          setProducts(productsList);
         }
       })
       .catch((err) => {
@@ -560,28 +582,66 @@ function App() {
     }
   };
 
-  // --- מוצרים (טלפונים/מחשבים למכירה) ---
-  const handleSaveProduct = (product) => {
-    setProducts((prev) => {
-      if (product.id && prev.some((p) => p.id === product.id)) {
-        return prev.map((p) => (p.id === product.id ? { ...p, ...product } : p));
+  // --- מוצרים – שמירה ב-Firestore בלבד (תמונות = קישורים, בלי Storage = בלי עלות) ---
+  const handleSaveProduct = async (product, _newImageFiles) => {
+    const db = getDb();
+    const payload = { name: product.name, price: product.price ?? null, description: product.description || "", tags: product.tags || [], images: product.images || [] };
+
+    if (db) {
+      try {
+        let productId = product.id && !String(product.id).startsWith("prod-") ? product.id : null;
+        if (productId) {
+          await db.collection("products").doc(productId).update(payload);
+        } else {
+          const ref = await db.collection("products").add(payload);
+          productId = ref.id;
+        }
+        setProducts((prev) => {
+          const next = { ...payload, id: productId };
+          if (prev.some((p) => p.id === productId)) return prev.map((p) => (p.id === productId ? next : p));
+          return [...prev, next];
+        });
+        setEditingProduct(null);
+        setShowProductModal(false);
+        showMessage("המוצר נשמר בהצלחה", "success");
+      } catch (err) {
+        console.error(err);
+        showMessage("שגיאה בשמירת המוצר", "error");
       }
-      return [
-        ...prev,
-        {
-          ...product,
-          id: `prod-${Date.now()}-${prev.length}`,
-        },
-      ];
-    });
-    setEditingProduct(null);
-    setShowProductModal(false);
+    } else {
+      setProducts((prev) => {
+        const id = product.id && prev.some((p) => p.id === product.id) ? product.id : `prod-${Date.now()}-${prev.length}`;
+        const next = { ...payload, id };
+        if (prev.some((p) => p.id === id)) return prev.map((p) => (p.id === id ? next : p));
+        return [...prev, next];
+      });
+      setEditingProduct(null);
+      setShowProductModal(false);
+      showMessage("המוצר נוסף", "success");
+    }
   };
 
   const handleDeleteProductConfirmed = () => {
     if (!productToDelete) return;
-    setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-    setProductToDelete(null);
+    const db = getDb();
+    if (db && productToDelete.id && !String(productToDelete.id).startsWith("prod-")) {
+      db.collection("products")
+        .doc(productToDelete.id)
+        .delete()
+        .then(() => {
+          setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+          setProductToDelete(null);
+          showMessage("המוצר נמחק", "success");
+        })
+        .catch((err) => {
+          console.error(err);
+          showMessage("שגיאה במחיקה", "error");
+        });
+    } else {
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+      setProductToDelete(null);
+      showMessage("המוצר נמחק", "success");
+    }
   };
 
   const handleUpdatePromo = (title, subtitle) => {
@@ -680,9 +740,7 @@ function App() {
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
               <a
-                href="https://b-phone.netlify.app/"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#"
                 className="flex items-center hover:opacity-90 transition"
               >
                 {siteConfig.logoUrl ? (
@@ -1882,9 +1940,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
           typeof initialData.price === "number"
             ? String(initialData.price)
             : initialData.price || "",
-        imagesText: initialData.images
-          ? initialData.images.join("\n")
-          : initialData.imageUrl || "",
+        imagesText: (initialData.images && initialData.images.join("\n")) || initialData.imageUrl || "",
         description: initialData.description || "",
         tagsText: initialData.tags ? initialData.tags.join(", ") : "",
       };
@@ -1898,30 +1954,55 @@ function ProductModal({ onClose, onSubmit, initialData }) {
       tagsText: "",
     };
   });
+  const [newFiles, setNewFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const isEdit = Boolean(initialData && initialData.id);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const tags =
       formData.tagsText && formData.tagsText.trim().length > 0
         ? formData.tagsText.split(",").map((t) => t.trim())
         : [];
-    const images =
+    let images =
       formData.imagesText && formData.imagesText.trim().length > 0
         ? formData.imagesText
             .split("\n")
             .map((l) => l.trim())
             .filter(Boolean)
         : [];
-    onSubmit({
-      id: formData.id,
-      name: formData.name,
-      price: formData.price ? Number(formData.price) : null,
-      images,
-      description: formData.description,
-      tags,
-    });
+
+    if (newFiles.length > 0 && IMGBB_API_KEY) {
+      setUploading(true);
+      try {
+        for (const file of newFiles) {
+          const url = await uploadImageToImgBB(file);
+          if (url) images.push(url);
+        }
+      } catch (err) {
+        console.error("ImgBB upload:", err);
+      }
+      setUploading(false);
+    } else if (newFiles.length > 0 && !IMGBB_API_KEY) {
+      // יש קבצים אבל אין מפתח – לא מעלים, רק קישורים מהתיבה
+    }
+
+    onSubmit(
+      {
+        id: formData.id,
+        name: formData.name,
+        price: formData.price ? Number(formData.price) : null,
+        images,
+        description: formData.description,
+        tags,
+      },
+      null
+    );
+  };
+
+  const removeNewFile = (idx) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -1937,7 +2018,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
           <h3 className="text-2xl font-bold text-slate-800">
             {isEdit ? "עריכת מוצר" : "הוספת מוצר חדש"}
           </h3>
-          <button onClick={onClose}>
+          <button type="button" onClick={onClose}>
             <X className="text-gray-400 hover:text-gray-600" />
           </button>
         </div>
@@ -1957,33 +2038,71 @@ function ProductModal({ onClose, onSubmit, initialData }) {
               }
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                מחיר (₪)
-              </label>
-              <input
-                type="number"
-                className="w-full border rounded-lg p-2"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                קישורי תמונות (שורה לכל כתובת)
-              </label>
-              <textarea
-                className="w-full border rounded-lg p-2 text-sm min-h-[80px]"
-                placeholder="העלה את התמונות לשירות ענן (למשל Cloudinary) והדבק כאן את הקישורים, כל קישור בשורה נפרדת"
-                value={formData.imagesText}
-                onChange={(e) =>
-                  setFormData({ ...formData, imagesText: e.target.value })
-                }
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              מחיר (₪)
+            </label>
+            <input
+              type="number"
+              className="w-full border rounded-lg p-2"
+              value={formData.price}
+              onChange={(e) =>
+                setFormData({ ...formData, price: e.target.value })
+              }
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              תמונות המוצר
+            </label>
+            <p className="text-xs text-gray-500 mb-2">
+              העלאה ישירה (חינם דרך ImgBB): בחר קבצים. או הדבק קישורים בשורות למטה.
+            </p>
+            {newFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {Array.from(newFiles).map((file, idx) => (
+                  <div key={idx} className="relative">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt=""
+                      className="w-16 h-16 object-cover rounded border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeNewFile(idx)}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="w-full text-sm text-gray-600 file:mr-2 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 mb-2"
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) setNewFiles((prev) => [...prev, ...Array.from(files)]);
+                e.target.value = "";
+              }}
+            />
+            <label className="block text-xs font-medium text-gray-600 mt-2 mb-1">קישורי תמונות (אופציונלי, שורה לכל קישור)</label>
+            <textarea
+              className="w-full border rounded-lg p-2 text-sm min-h-[60px]"
+              placeholder="https://...\nhttps://..."
+              value={formData.imagesText}
+              onChange={(e) =>
+                setFormData({ ...formData, imagesText: e.target.value })
+              }
+            />
+            {!IMGBB_API_KEY && (
+              <p className="text-xs text-amber-700 mt-1">
+                להעלאה ישירה: הוסף מפתח חינמי מ־<a href="https://api.imgbb.com/" target="_blank" rel="noopener noreferrer" className="underline">api.imgbb.com</a> ב־index.html (IMGBB_API_KEY).
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2014,9 +2133,10 @@ function ProductModal({ onClose, onSubmit, initialData }) {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 mt-4"
+            disabled={uploading}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 mt-4"
           >
-            {isEdit ? "שמור שינויים" : "שמור והוסף לאתר"}
+            {uploading ? "מעלה תמונות..." : isEdit ? "שמור שינויים" : "שמור והוסף לאתר"}
           </button>
         </form>
       </div>

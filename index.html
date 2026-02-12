@@ -26,9 +26,10 @@
   <body class="bg-slate-50">
     <div id="root"></div>
 
-    <!-- כתובת Worker מ-Cloudflare (חינם) – אחרי שתצור Worker מקובץ gemini-worker.js, הדבק כאן -->
     <script>
       window.GEMINI_PROXY_URL = "https://gemini-proxy.123123mushh.workers.dev";
+      // מפתח ImgBB חינמי – להעלאת תמונות מוצרים בלי Firebase Storage. קבל ב: https://api.imgbb.com/
+      window.IMGBB_API_KEY = "d812973a77f1d757a2b824ce7f5a1aeb";
     </script>
     <!-- קוד React של האתר -->
     <script type="text/babel" src="./app.jsx" data-presets="react"></script>
