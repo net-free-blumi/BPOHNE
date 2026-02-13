@@ -3,10 +3,12 @@
  *
  * מה לעשות באתר Firebase (console.firebase.google.com):
  * 1. בחר את הפרויקט → Build → Authentication.
- * 2. Sign-in method: לחץ על "אימייל/סיסמה" והפעל (Enable), שמור.
- * 3. Sign-in method: לחץ על "Google", הפעל (Enable), בחר אימייל תמיכה, שמור.
- * 4. (אופציונלי) Authentication → Settings → Authorized domains: וודא שהדומיין שלך ברשימה
- *    (localhost ו־bphone-4e304.firebaseapp.com כבר שם).
+ * 2. Sign-in method: "אימייל/סיסמה" (Email/Password) – חייב להיות מופעל (Enable). שמור.
+ * 3. Sign-in method: "Google" – הפעל, בחר אימייל תמיכה, שמור.
+ * 4. כדי שהתחברות עם אימייל וסיסמה תעבוד: Authentication → Users → Add user.
+ *    הזן אימייל וסיסמה (למשל bp0527151000@gmail.com והסיסמה שבחרת). שמור.
+ *    (אם המייל כבר קיים רק מ־Google – אין סיסמה; צריך להתחבר עם גוגל או ליצור משתמש חדש באימייל+סיסמה.)
+ * 5. (אופציונלי) Settings → Authorized domains: וודא שהדומיין ברשימה.
  *
  * רק אימיילים שמופיעים ב־ALLOWED_ADMIN_EMAILS ב־app.jsx נחשבים כמנהלים.
  */

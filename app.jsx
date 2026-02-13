@@ -458,37 +458,33 @@ function App() {
     return () => unsubAuth();
   }, []);
 
-  // --- כניסת מנהל (Firebase אימייל/סיסמה, גוגל, או מקומי 1234) ---
+  // --- כניסת מנהל: גוגל (רק 2 המיילים ברשימה) / מייל+סיסמה מקומי (בלי Firebase) / מקומי 1234 ---
   const handleLogin = (email, password) => {
+    const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const trimmedPassword = typeof password === "string" ? password : "";
+    if (!trimmedEmail || !trimmedPassword) {
+      showMessage("נא למלא אימייל וסיסמה.", "error");
+      return;
+    }
+    // התחברות עם מייל וסיסמה – רק מקומי (בלי Firebase): המייל והסיסמה הקבועים
+    if (trimmedEmail === "bp0527151000@gmail.com" && trimmedPassword === "123456") {
+      setIsAdmin(true);
+      setShowLoginModal(false);
+      showMessage("התחברת בהצלחה", "success");
+      return;
+    }
     const auth = getAuth();
     if (auth) {
-      auth
-        .signInWithEmailAndPassword(email, password)
-        .then((credential) => {
-          const user = credential && credential.user;
-          if (!user || !isAllowedAdmin(user.email)) {
-            auth.signOut();
-            showMessage("אין לך הרשאה לגשת לאזור הניהול. רק מנהלים מורשים יכולים להתחבר.", "error");
-            return;
-          }
-          setShowLoginModal(false);
-          showMessage("התחברת בהצלחה", "success");
-        })
-        .catch((err) => {
-          const code = err.code || "";
-          const msg = code.includes("invalid-email")
-            ? "נא להזין אימייל בתבנית תקינה."
-            : "אימייל או סיסמה לא נכונים. נסה שוב.";
-          showMessage(msg, "error");
-        });
+      showMessage("אימייל או סיסמה לא נכונים. נסה שוב.", "error");
+      return;
+    }
+    // מצב מקומי בלי Firebase
+    if (trimmedPassword === "1234") {
+      setIsAdmin(true);
+      setShowLoginModal(false);
+      showMessage("התחברת בהצלחה", "success");
     } else {
-      if (password === "1234") {
-        setIsAdmin(true);
-        setShowLoginModal(false);
-        showMessage("התחברת בהצלחה", "success");
-      } else {
-        showMessage("סיסמה שגויה. נסה 1234", "error");
-      }
+      showMessage("סיסמה שגויה. נסה 1234", "error");
     }
   };
 
