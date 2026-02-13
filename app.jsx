@@ -18,6 +18,8 @@ function isFirebaseActive() {
 // --- אימיילים מורשים לניהול (רק הם ייחשבו כמנהלים אחרי התחברות) ---
 const ALLOWED_ADMIN_EMAILS = [
   "bp0527151000@gmail.com",
+  "123123mushh@gmail.com",
+
   // אפשר להוסיף כאן אימיילים נוספים של מנהלים
 ];
 function isAllowedAdmin(email) {
@@ -462,8 +464,8 @@ function App() {
     if (auth) {
       auth
         .signInWithEmailAndPassword(email, password)
-        .then(() => {
-          const user = auth.currentUser;
+        .then((credential) => {
+          const user = credential && credential.user;
           if (!user || !isAllowedAdmin(user.email)) {
             auth.signOut();
             showMessage("אין לך הרשאה לגשת לאזור הניהול. רק מנהלים מורשים יכולים להתחבר.", "error");
@@ -499,8 +501,8 @@ function App() {
     const provider = new window.firebase.auth.GoogleAuthProvider();
     auth
       .signInWithPopup(provider)
-      .then(() => {
-        const user = auth.currentUser;
+      .then((credential) => {
+        const user = credential && credential.user;
         if (!user || !isAllowedAdmin(user.email)) {
           auth.signOut();
           showMessage("אין לך הרשאה לגשת לאזור הניהול. רק מנהלים מורשים יכולים להתחבר.", "error");
