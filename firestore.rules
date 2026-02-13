@@ -1,18 +1,16 @@
 rules_version = '2';
 // העתק את כל התוכן ל-Firebase Console → Firestore → Rules → Publish
+// הרשאות כתיבה פתוחות – האתר שולט מי מנהל (כניסה לאזור הניהול). מי שנכנס כמנהל יכול לערוך.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /config/{doc} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
     match /packages/{doc} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
     match /products/{doc} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }

@@ -31,18 +31,23 @@ function isAllowedAdmin(email) {
 // --- ImgBB – העלאת תמונות חינמית (מפתח חינמי: https://api.imgbb.com/) ---
 const IMGBB_API_KEY = typeof window !== "undefined" && window.IMGBB_API_KEY ? window.IMGBB_API_KEY : "";
 
-async function uploadImageToImgBB(file) {
+async function uploadImageToImgBB(file, retries = 2) {
   if (!IMGBB_API_KEY) return null;
-  const form = new FormData();
-  form.append("key", IMGBB_API_KEY);
-  form.append("image", file);
-  const res = await fetch("https://api.imgbb.com/1/upload", {
-    method: "POST",
-    body: form,
-  });
-  const data = await res.json();
-  if (data && data.data && data.data.url) return data.data.url;
-  throw new Error(data?.error?.message || "ImgBB upload failed");
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const form = new FormData();
+      form.append("key", IMGBB_API_KEY);
+      form.append("image", file);
+      const res = await fetch("https://api.imgbb.com/1/upload", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (data && data.data && data.data.url) return data.data.url;
+    } catch (_) {}
+    if (attempt < retries) await new Promise((r) => setTimeout(r, 800));
+  }
+  return null;
 }
 
 // --- אייקונים פשוטים במקום lucide-react (מתאימים ל-RTL ולטיילווינד) ---
@@ -76,6 +81,7 @@ const Settings = (props) => <IconWrapper {...props}>⚙️</IconWrapper>;
 const MessageCircle = (props) => <IconWrapper {...props}>💬</IconWrapper>;
 const ImageIcon = (props) => <IconWrapper {...props}>🖼️</IconWrapper>;
 const Check = (props) => <IconWrapper {...props}>✓</IconWrapper>;
+const Accessibility = (props) => <IconWrapper {...props}>♿</IconWrapper>;
 const Bot = ({ size = 28, className = "" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <rect x="4" y="10" width="16" height="11" rx="2" />
@@ -394,6 +400,30 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
+  const [accOpen, setAccOpen] = useState(false);
+  const [accFontSize, setAccFontSize] = useState(() => {
+    try { return localStorage.getItem("bphone_acc_font") || "normal"; } catch { return "normal"; }
+  });
+  const [accContrast, setAccContrast] = useState(() => {
+    try { return localStorage.getItem("bphone_acc_contrast") === "1"; } catch { return false; }
+  });
+  const [accLinks, setAccLinks] = useState(() => {
+    try { return localStorage.getItem("bphone_acc_links") === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("bphone_acc_font", accFontSize);
+      localStorage.setItem("bphone_acc_contrast", accContrast ? "1" : "0");
+      localStorage.setItem("bphone_acc_links", accLinks ? "1" : "0");
+    } catch (_) {}
+    const root = document.documentElement;
+    root.classList.remove("acc-font-large", "acc-font-x-large", "acc-contrast-high", "acc-links-highlight");
+    if (accFontSize === "large") root.classList.add("acc-font-large");
+    if (accFontSize === "x-large") root.classList.add("acc-font-x-large");
+    if (accContrast) root.classList.add("acc-contrast-high");
+    if (accLinks) root.classList.add("acc-links-highlight");
+  }, [accFontSize, accContrast, accLinks]);
 
   const showMessage = (message, type = "info") => {
     setToast({ message, type });
@@ -458,7 +488,7 @@ function App() {
     return () => unsubAuth();
   }, []);
 
-  // --- כניסת מנהל: גוגל (רק 2 המיילים ברשימה) / מייל+סיסמה מקומי (בלי Firebase) / מקומי 1234 ---
+  // --- כניסת מנהל: גוגל (2 המיילים ברשימה) / מייל+סיסמה קבועים / מקומי 1234. כולם מקבלים אותן הרשאות. ---
   const handleLogin = (email, password) => {
     const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const trimmedPassword = typeof password === "string" ? password : "";
@@ -466,7 +496,6 @@ function App() {
       showMessage("נא למלא אימייל וסיסמה.", "error");
       return;
     }
-    // התחברות עם מייל וסיסמה – רק מקומי (בלי Firebase): המייל והסיסמה הקבועים
     if (trimmedEmail === "bp0527151000@gmail.com" && trimmedPassword === "123456") {
       setIsAdmin(true);
       setShowLoginModal(false);
@@ -730,23 +759,43 @@ function App() {
   };
 
   const handleWhatsAppClick = (pkg) => {
-    const name = pkg.providerName || pkg.provider;
-    const detail = pkg.priceDetail ? `\nפירוט: ${pkg.priceDetail}` : "";
-    const text = `היי B-Phone, אני מעוניין להצטרף לתוכנית הבאה:
------------------------
-*ספק:* ${name}
-*מחיר:* ${pkg.price} ₪${detail ? `\n*פירוט:* ${pkg.priceDetail}` : ""}
-*קטגוריה:* ${pkg.category === "kosher" ? "כשר" : pkg.category === "internet" ? "אינטרנט ביתי" : pkg.category}
------------------------
-אשמח לקבל פרטים ולהצטרף!`;
     const phone = siteConfig.whatsapp || "0527151000";
     const normalized = phone.replace(/[^0-9]/g, "");
     const withoutLeadingZero = normalized.startsWith("0")
       ? normalized.slice(1)
       : normalized;
-    const url = `https://wa.me/972${withoutLeadingZero}?text=${encodeURIComponent(
-      text
-    )}`;
+
+    let text;
+    if (pkg.category === "product") {
+      // מוצר – שולחים את כל המידע מהתיבה
+      const name = pkg.name || pkg.provider || "מוצר";
+      const priceLine = pkg.price != null && pkg.price !== "" ? `*מחיר:* ${pkg.price} ₪` : "";
+      const descLine = pkg.description && String(pkg.description).trim() ? `\n*תיאור:*\n${String(pkg.description).trim()}` : "";
+      const tagsLine = pkg.tags && Array.isArray(pkg.tags) && pkg.tags.length > 0
+        ? `\n*תגיות:* ${pkg.tags.join(", ")}`
+        : "";
+      text = `היי B-Phone, אני מתעניין במוצר הבא מהאתר:
+-----------------------
+*שם המוצר:* ${name}
+${priceLine}${descLine}${tagsLine}
+-----------------------
+אשמח לקבל פרטים ולהזמין!`;
+    } else {
+      // חבילה סלולר
+      const name = pkg.providerName || pkg.provider;
+      const detail = pkg.priceDetail ? `\n*פירוט:* ${pkg.priceDetail}` : "";
+      const categoryLabel = pkg.category === "kosher" ? "כשר" : pkg.category === "internet" ? "אינטרנט ביתי" : pkg.category;
+      text = `היי B-Phone, אני מעוניין להצטרף לתוכנית הבאה:
+-----------------------
+*ספק:* ${name}
+*מחיר:* ${pkg.price} ₪${detail}
+*קטגוריה:* ${categoryLabel}
+${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join("\n")}` : ""}
+-----------------------
+אשמח לקבל פרטים ולהצטרף!`;
+    }
+
+    const url = `https://wa.me/972${withoutLeadingZero}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
 
@@ -1149,24 +1198,23 @@ function App() {
             </div>
           </div>
 
-          {/* תיבת חיפוש + כפתור איפוס */}
-          <div className="mb-6 flex flex-wrap items-center gap-2 max-w-xl">
+          {/* תיבת חיפוש עם כפתור איפוס בתוך התיבה */}
+          <div className="mb-6 max-w-xl relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="חיפוש לפי חברה, מחיר, כשר, דור 4, אינטרנט..."
-              className="flex-1 min-w-[200px] rounded-xl border border-gray-300 bg-white px-4 py-3 text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-xl border border-gray-300 bg-white pl-12 pr-4 py-3 text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <button
               type="button"
               onClick={() => setSearchQuery("")}
               title="איפוס חיפוש"
-              className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${searchQuery.trim() ? "border-gray-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-gray-200 bg-gray-50 text-gray-400 cursor-default"}`}
+              className={`absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center transition ${searchQuery.trim() ? "bg-slate-200 text-slate-600 hover:bg-slate-300" : "bg-gray-100 text-gray-400 cursor-default pointer-events-none"}`}
               disabled={!searchQuery.trim()}
             >
-              <RefreshCw size={18} />
-              איפוס
+              <X size={18} />
             </button>
           </div>
 
@@ -1341,7 +1389,17 @@ function App() {
             </div>
             <div>
               <h4 className="text-white font-bold mb-4">מידע נוסף</h4>
-              <p>מצאת טעות במחיר? <a href="#packages" className="underline">דווח לנו</a></p>
+              <p>מצאת טעות במחיר? <a href="#packages" className="underline hover:text-white">דווח לנו</a></p>
+              <p className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setAccOpen(true)}
+                  className="text-slate-400 hover:text-white underline cursor-pointer text-sm"
+                  aria-label="הגדרות נגישות"
+                >
+                  נגישות
+                </button>
+              </p>
               <p className="mt-3 text-amber-200/90 text-xs leading-relaxed">
                 המחירים והמבצעים באחריות הספקים ונתונים לשינוי בהתאם לתקנון החברות. ט.ל.ח
               </p>
@@ -1362,7 +1420,54 @@ function App() {
         <ArrowUp size={24} />
       </button>
 
-      {/* B-Bot – כפתור צף להתייעצות */}
+      {/* נגישות – מודל שנפתח מקישור בפוטר (לא צף, לא מפריע) */}
+      {accOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={() => setAccOpen(false)}
+          role="dialog"
+          aria-label="הגדרות נגישות"
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl border border-gray-200 p-5 w-full max-w-sm text-right"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <span className="font-bold text-slate-800">הגדרות נגישות</span>
+              <button type="button" onClick={() => setAccOpen(false)} className="text-gray-500 hover:text-gray-700" aria-label="סגור">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="font-medium text-slate-700 mb-2">גודל טקסט</p>
+                <div className="flex gap-2 flex-wrap">
+                  {["normal", "large", "x-large"].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setAccFontSize(size)}
+                      className={`px-3 py-2 rounded-lg border ${accFontSize === size ? "bg-blue-600 text-white border-blue-600" : "bg-gray-50 border-gray-200 hover:bg-gray-100"}`}
+                    >
+                      {size === "normal" ? "רגיל" : size === "large" ? "גדול" : "גדול מאוד"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={accContrast} onChange={(e) => setAccContrast(e.target.checked)} className="rounded" />
+                <span>ניגודיות גבוהה</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={accLinks} onChange={(e) => setAccLinks(e.target.checked)} className="rounded" />
+                <span>הדגש קישורים</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* B-Bot – כפתור צף */}
       <button
         type="button"
         onClick={() => setShowAiAdvisor(true)}
@@ -2093,8 +2198,7 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
           <button
             onClick={() =>
               onWhatsApp({
-                provider: product.name,
-                price: product.price || "",
+                ...product,
                 category: "product",
               })
             }
@@ -2143,6 +2247,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
   });
   const [newFiles, setNewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
 
   const isEdit = Boolean(initialData && initialData.id);
 
@@ -2163,12 +2268,16 @@ function ProductModal({ onClose, onSubmit, initialData }) {
     if (newFiles.length > 0 && IMGBB_API_KEY) {
       setUploading(true);
       try {
-        for (const file of newFiles) {
-          const url = await uploadImageToImgBB(file);
+        const total = newFiles.length;
+        for (let i = 0; i < newFiles.length; i++) {
+          setUploadStatus(`מעלה תמונה ${i + 1} מתוך ${total}...`);
+          const url = await uploadImageToImgBB(newFiles[i]);
           if (url) images.push(url);
         }
+        setUploadStatus("");
       } catch (err) {
         console.error("ImgBB upload:", err);
+        setUploadStatus("");
       }
       setUploading(false);
     } else if (newFiles.length > 0 && !IMGBB_API_KEY) {
@@ -2243,7 +2352,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
               תמונות המוצר
             </label>
             <p className="text-xs text-gray-500 mb-2">
-              העלאה ישירה (חינם דרך ImgBB): בחר קבצים. או הדבק קישורים בשורות למטה.
+              העלאה ישירה (חינם דרך ImgBB): בחר קבצים. או הדבק קישורים בשורות למטה. אם ההעלאה לא מתחילה – נסה לבחור שוב או להקטין את גודל התמונה.
             </p>
             {newFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
@@ -2266,6 +2375,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
               </div>
             )}
             <input
+              key={newFiles.length}
               type="file"
               accept="image/*"
               multiple
@@ -2318,12 +2428,15 @@ function ProductModal({ onClose, onSubmit, initialData }) {
             />
           </div>
 
+          {uploadStatus && (
+            <p className="text-sm text-blue-600 mt-2">{uploadStatus}</p>
+          )}
           <button
             type="submit"
             disabled={uploading}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 mt-4"
           >
-            {uploading ? "מעלה תמונות..." : isEdit ? "שמור שינויים" : "שמור והוסף לאתר"}
+            {uploading ? (uploadStatus || "מעלה תמונות...") : isEdit ? "שמור שינויים" : "שמור והוסף לאתר"}
           </button>
         </form>
       </div>
