@@ -15,6 +15,14 @@ function isFirebaseActive() {
   return getDb() && getAuth();
 }
 
+// --- פורמט מחיר: פסיק באלפים (למשל 2300 → 2,300) ---
+function formatPrice(val) {
+  if (val == null || val === "") return "";
+  const n = typeof val === "number" ? val : parseInt(String(val).replace(/,/g, ""), 10);
+  if (Number.isNaN(n)) return String(val);
+  return n >= 1000 ? n.toLocaleString("en-US") : String(n);
+}
+
 // --- אימיילים מורשים לניהול (רק הם ייחשבו כמנהלים אחרי התחברות) ---
 const ALLOWED_ADMIN_EMAILS = [
   "bp0527151000@gmail.com",
@@ -674,6 +682,7 @@ function App() {
       tags: product.tags || [],
       images: product.images || [],
       order: product.order != null ? product.order : maxOrder + 1,
+      badge: product.badge || "",
     };
 
     if (db) {
@@ -866,10 +875,16 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     setPackagesVisibleCount(3);
   }, [activeTab, searchQuery]);
 
+  // צבעי ביפון: כחול כהה (צי), לבן, כתום (דגש)
+  const bphoneNavy = "bg-[#1e3a5f]";
+  const bphoneNavyLight = "bg-[#2a4a6f]";
+  const bphoneOrange = "text-orange-400";
+  const bphoneOrangeBg = "bg-orange-500 hover:bg-orange-400";
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900" dir="rtl">
-      {/* Navigation */}
-      <nav className="bg-white shadow-md sticky top-0 z-50">
+      {/* Navigation – סגנון ביפון: כחול כהה, לבן, דגש כתום */}
+      <nav className={`${bphoneNavy} shadow-lg sticky top-0 z-50`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
@@ -881,20 +896,20 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                   <div className="flex-shrink-0 flex items-center">
                     <img
                       src={siteConfig.logoUrl}
-                      alt="B-Phone Logo"
-                      className="h-16 w-auto object-contain"
+                      alt="ביפון B-Phone"
+                      className="h-14 w-auto object-contain"
                     />
                   </div>
                 ) : (
                   <div className="flex-shrink-0 flex items-center gap-2">
-                    <div className="bg-blue-600 p-2 rounded-lg">
+                    <div className="bg-orange-500 p-2 rounded-lg">
                       <Phone className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h1 className="text-xl font-bold text-blue-900 leading-none">
-                        Bפון
+                      <h1 className="text-xl font-bold text-white leading-none">
+                        ביפון
                       </h1>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-sky-200">
                         תקשורת סלולרית
                       </span>
                     </div>
@@ -904,42 +919,27 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             </div>
 
             {/* Desktop Menu */}
-            <div className="hidden md:flex items-center space-x-8 space-x-reverse">
-              <a
-                href="#promos"
-                className="text-gray-700 hover:text-blue-600 font-medium transition"
-              >
+            <div className="hidden md:flex items-center gap-6">
+              <a href="#promos" className="text-white/90 hover:text-orange-400 font-medium transition">
                 מבצעים
               </a>
-              <a
-                href="#packages"
-                className="text-gray-700 hover:text-blue-600 font-medium transition"
-              >
+              <a href="#packages" className="text-white/90 hover:text-orange-400 font-medium transition">
                 חבילות
               </a>
-              <a
-                href="#products"
-                className="text-gray-700 hover:text-blue-600 font-medium transition"
-              >
+              <a href="#products" className="text-white/90 hover:text-orange-400 font-medium transition">
                 מוצרים
               </a>
-              <a
-                href="#services"
-                className="text-gray-700 hover:text-blue-600 font-medium transition"
-              >
+              <a href="#services" className="text-white/90 hover:text-orange-400 font-medium transition">
                 שירותים
               </a>
-              <a
-                href="#locations"
-                className="text-gray-700 hover:text-blue-600 font-medium transition"
-              >
+              <a href="#locations" className="text-white/90 hover:text-orange-400 font-medium transition">
                 סניפים
               </a>
 
               {isAdmin && (
                 <button
                   onClick={() => setShowSettingsModal(true)}
-                  className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition"
+                  className="p-2 text-white/80 hover:text-orange-400 hover:bg-white/10 rounded-full transition"
                   title="הגדרות אתר"
                 >
                   <Settings size={20} />
@@ -956,8 +956,8 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
                   isAdmin
-                    ? "bg-red-100 text-red-700 hover:bg-red-200"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-red-500/20 text-red-200 hover:bg-red-500/30"
+                    : "bg-white/10 text-white hover:bg-white/20"
                 }`}
               >
                 {isAdmin ? (
@@ -986,57 +986,24 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 pb-4">
-            <div className="flex flex-col space-y-2 px-4 pt-2">
-              <a
-                href="#promos"
-                className="py-2 border-b border-gray-50"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                מבצעים
-              </a>
-              <a
-                href="#packages"
-                className="py-2 border-b border-gray-50"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                חבילות
-              </a>
-              <a
-                href="#products"
-                className="py-2 border-b border-gray-50"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                מוצרים
-              </a>
-              <a
-                href="#locations"
-                className="py-2 border-b border-gray-50"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                סניפים
-              </a>
+          <div className="md:hidden bg-[#2a4a6f] border-t border-white/10 pb-4">
+            <div className="flex flex-col space-y-0 px-4 pt-2">
+              <a href="#promos" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>מבצעים</a>
+              <a href="#packages" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>חבילות</a>
+              <a href="#products" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>מוצרים</a>
+              <a href="#services" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>שירותים</a>
+              <a href="#locations" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>סניפים</a>
               {isAdmin && (
-                <button
-                  onClick={() => {
-                    setShowSettingsModal(true);
-                    setMobileMenuOpen(false);
-                  }}
-                  className="py-2 text-right border-b border-gray-50"
-                >
+                <button onClick={() => { setShowSettingsModal(true); setMobileMenuOpen(false); }} className="py-3 text-right text-white/80 border-b border-white/10">
                   הגדרות אתר
                 </button>
               )}
               <button
                 onClick={() => {
-                  if (isAdmin) {
-                    const auth = getAuth();
-                    if (auth) auth.signOut();
-                    setIsAdmin(false);
-                  } else setShowLoginModal(true);
+                  if (isAdmin) { const auth = getAuth(); if (auth) auth.signOut(); setIsAdmin(false); } else setShowLoginModal(true);
                   setMobileMenuOpen(false);
                 }}
-                className="mt-2 text-blue-600 font-bold text-right"
+                className="mt-2 py-2 text-orange-400 font-bold text-right"
               >
                 {isAdmin ? "יציאה" : "כניסת מנהל"}
               </button>
@@ -1045,10 +1012,10 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         )}
       </nav>
 
-      {/* Hero / Promo Section */}
+      {/* Hero / באנר ביפון – כחול כהה, תמונה אופציונלית, קישורי קטגוריות */}
       <div
         id="promos"
-        className="relative bg-blue-700 text-white overflow-hidden transition-all duration-500"
+        className={`relative ${bphoneNavy} text-white overflow-hidden min-h-[320px] flex flex-col justify-center transition-all duration-500`}
         style={
           siteConfig.heroImageUrl
             ? {
@@ -1059,46 +1026,56 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             : {}
         }
       >
-        {/* Overlay for readability if image is present */}
         {siteConfig.heroImageUrl && (
-          <div className="absolute inset-0 bg-black/50 z-0"></div>
+          <div className="absolute inset-0 bg-[#1e3a5f]/85 z-0" />
         )}
-
-        {/* Default pattern if no image */}
         {!siteConfig.heroImageUrl && (
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orange-500/30 to-transparent" />
         )}
 
-        <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 relative z-10 text-center">
+        <div className="max-w-7xl mx-auto px-4 py-12 sm:py-16 sm:px-6 lg:px-8 relative z-10">
           {isAdmin ? (
-            <PromoEditor
-              promoMessage={promoMessage}
-              onSave={handleUpdatePromo}
-            />
+            <div className="text-center mb-6">
+              <PromoEditor promoMessage={promoMessage} onSave={handleUpdatePromo} />
+            </div>
           ) : null}
 
-          <span className="inline-block py-1 px-3 rounded-full bg-blue-500 bg-opacity-50 border border-blue-400 text-sm font-semibold tracking-wide mb-4 backdrop-blur-sm">
-            B-Phone ביפון תקשורת סלולרית - בית שמש - ביתר
-          </span>
-          <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl mb-4 drop-shadow-md">
-            {promoMessage.title}
-          </h2>
-          <p className="mt-2 text-xl text-blue-100 max-w-2xl mx-auto drop-shadow-sm">
-            {promoMessage.subtitle}
-          </p>
-          <div className="mt-8 flex justify-center gap-4">
-            <a
-              href="#locations"
-              className="px-8 py-3 rounded-lg bg-white text-blue-700 font-bold hover:bg-blue-50 transition shadow-lg"
-            >
-              מצא סניף קרוב
-            </a>
-            <a
-              href="#packages"
-              className="px-8 py-3 rounded-lg bg-transparent border-2 border-white text-white font-bold hover:bg-white/10 transition backdrop-blur-sm"
-            >
-              לכל החבילות
-            </a>
+          <div className="text-center">
+            <span className="inline-flex items-center gap-1.5 py-1.5 px-4 rounded-full bg-white/10 border border-orange-400/50 text-sm font-semibold text-sky-100 mb-4">
+              <span className="text-orange-400">◆</span> ביפון תקשורת סלולרית – בית שמש וביתר
+            </span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 text-white drop-shadow-md">
+              {promoMessage.title}
+            </h2>
+            <p className="text-lg sm:text-xl text-sky-100/90 max-w-2xl mx-auto mb-8">
+              {promoMessage.subtitle}
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
+              <a href="#products" className="px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-400 transition text-sm">
+                אביזרים ומבצעים
+              </a>
+              <a href="#packages" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
+                ניוד קווים
+              </a>
+              <a href="#services" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
+                מעבדה
+              </a>
+    
+            </div>
+            <div className="flex flex-wrap justify-center gap-4">
+              <a
+                href="#locations"
+                className="px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition shadow-lg"
+              >
+                מצא סניף קרוב
+              </a>
+              <a
+                href="#packages"
+                className="px-6 py-3 rounded-xl bg-transparent border-2 border-white text-white font-bold hover:bg-white/10 transition"
+              >
+                לכל החבילות
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -1106,9 +1083,10 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       {/* Services Grid */}
       <section id="services" className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center text-slate-800 mb-10">
+          <h2 className="text-3xl font-bold text-center text-[#1e3a5f] mb-2">
             כל מה שצריך במקום אחד
           </h2>
+          <p className="text-center text-slate-500 mb-10">שירותים ופתרונות תקשורת בסגנון ביפון</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {siteConfig.services.map((service, idx) => (
               <ServiceCard
@@ -1139,9 +1117,9 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                   setEditingProduct(null);
                   setShowProductModal(true);
                 }}
-                className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition transform hover:scale-105"
+                className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-orange-400 transition transform hover:scale-105"
               >
-                <Plus size={20} /> ניהול מוצרים
+                <Plus size={20} /> הוסף מוצר
               </button>
             )}
           </div>
@@ -1165,7 +1143,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
                 {displayedProducts.map((product, index) => {
                   const card = (
                     <ProductCard
@@ -1207,7 +1185,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                         handleProductsReorder(next);
                         setDraggedProductId(null);
                       }}
-                      className={`cursor-grab active:cursor-grabbing ${draggedProductId === product.id ? "opacity-60" : ""}`}
+                      className={`cursor-grab active:cursor-grabbing h-full min-h-0 ${draggedProductId === product.id ? "opacity-60" : ""}`}
                     >
                       {card}
                     </div>
@@ -1219,7 +1197,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                   <button
                     type="button"
                     onClick={() => setProductsVisibleCount((c) => c + 6)}
-                    className="px-6 py-3 rounded-xl bg-slate-200 text-slate-800 font-bold hover:bg-slate-300 transition"
+                    className="px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition"
                   >
                     הצג עוד מוצרים
                   </button>
@@ -1245,7 +1223,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             המחירים והמבצעים באחריות הספקים ונתונים לשינוי בהתאם לתקנון החברות. ט.ל.ח
           </p>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h2 className="text-3xl font-bold text-slate-800">
+            <h2 className="text-3xl font-bold text-[#1e3a5f]">
               מצאו את החבילה שמתאימה לכם
             </h2>
 
@@ -1370,7 +1348,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                         )}
                         <h3 className="text-lg font-bold tracking-tight opacity-95">{displayName}</h3>
                         <div className="flex justify-center items-baseline gap-1 mt-1.5">
-                          <span className="text-4xl font-extrabold tracking-tight">{pkg.price}</span>
+                          <span className="text-4xl font-extrabold tracking-tight">{formatPrice(pkg.price)}</span>
                           <span className="text-xl font-semibold mr-0.5">₪</span>
                         </div>
                         <p className="text-xs opacity-90 font-medium">/חודש</p>
@@ -1421,7 +1399,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
               <div className="mt-8 text-center">
                 <button
                   onClick={() => setPackagesVisibleCount(filteredPackages.length)}
-                  className="px-8 py-4 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold transition shadow-md"
+                  className="px-8 py-4 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold transition shadow-md"
                 >
                   הראה עוד
                 </button>
@@ -1433,9 +1411,9 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       </section>
 
       {/* Locations Section */}
-      <section id="locations" className="py-16 bg-white">
+      <section id="locations" className="py-16 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center text-slate-800 mb-12">
+          <h2 className="text-3xl font-bold text-center text-[#1e3a5f] mb-12">
             הסניפים שלנו
           </h2>
           <div className="grid md:grid-cols-2 gap-8">
@@ -1452,14 +1430,13 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-12">
+      {/* Footer – צבעי ביפון */}
+      <footer className="bg-[#1e3a5f] text-sky-100/90 py-12">
         <div className="max-w-7xl mx-auto px-4">
-          
           <div className="grid md:grid-cols-3 gap-8 text-sm">
             <div>
               <h3 className="text-white font-bold text-lg mb-4">
-                B-Phone ביפון תקשורת סלולרית – בית שמש וביתר
+                ביפון B-Phone – תקשורת סלולרית
               </h3>
               <p className="mb-4">
                 הבית של הסלולר הכשר והחכם באזור. שירות אמין, מחירים הוגנים,
@@ -1469,25 +1446,25 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             <div>
               <h4 className="text-white font-bold mb-4">ניווט מהיר</h4>
               <ul className="space-y-2">
-                <li><a href="#packages" className="hover:text-white">חבילות סלולר</a></li>
-                <li><a href="#products" className="hover:text-white">מוצרים ומכשירים</a></li>
-                <li><a href="#locations" className="hover:text-white">צור קשר</a></li>
+                <li><a href="#packages" className="hover:text-orange-400 transition">חבילות סלולר</a></li>
+                <li><a href="#products" className="hover:text-orange-400 transition">מוצרים ומכשירים</a></li>
+                <li><a href="#locations" className="hover:text-orange-400 transition">צור קשר</a></li>
               </ul>
             </div>
             <div>
               <h4 className="text-white font-bold mb-4">מידע נוסף</h4>
-              <p>מצאת טעות במחיר? <a href="#packages" className="underline hover:text-white">דווח לנו</a></p>
+              <p>מצאת טעות במחיר? <a href="#packages" className="underline hover:text-orange-400">דווח לנו</a></p>
               <p className="mt-2">
                 <button
                   type="button"
                   onClick={() => setAccOpen(true)}
-                  className="text-slate-400 hover:text-white underline cursor-pointer text-sm"
+                  className="text-sky-200 hover:text-orange-400 underline cursor-pointer text-sm"
                   aria-label="הגדרות נגישות"
                 >
                   נגישות
                 </button>
               </p>
-              <p className="mt-3 text-amber-200/90 text-xs leading-relaxed">
+              <p className="mt-3 text-sky-200/80 text-xs leading-relaxed">
                 המחירים והמבצעים באחריות הספקים ונתונים לשינוי בהתאם לתקנון החברות. ט.ל.ח
               </p>
               <p className="mt-3">© כל הזכויות שמורות לבי-פון תקשורת 2026</p>
@@ -1500,7 +1477,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-slate-700 text-white shadow-lg hover:bg-slate-600 hover:scale-110 transition-all flex items-center justify-center"
+        className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-[#1e3a5f] text-white shadow-lg hover:bg-orange-500 hover:scale-110 transition-all flex items-center justify-center"
         title="חזרה לראש הדף"
         aria-label="חזרה לראש הדף"
       >
@@ -1981,9 +1958,10 @@ function SettingsModal({ config, onClose, onSave }) {
                 onChange={(e) =>
                   setFormData({ ...formData, heroImageUrl: e.target.value })
                 }
-                placeholder="https://..."
+                placeholder="https://... או נתיב מקומי כמו ./images/banner.jpg"
                 className="w-full border rounded-lg p-2"
               />
+              <p className="text-xs text-gray-500 mt-1">לבאנר ראשי: שים תמונה בתיקייה (למשל images/) והזן את הנתיב.</p>
             </div>
           </div>
 
@@ -2169,7 +2147,7 @@ function ProductImageLightbox({ product, images, startIndex, onClose }) {
       >
         <h3 className="text-xl font-bold mb-2">{product.name}</h3>
         {product.price && (
-          <p className="text-lg text-blue-200 mb-2">₪{product.price}</p>
+          <p className="text-lg text-blue-200 mb-2">₪{formatPrice(product.price)}</p>
         )}
         {product.description && (
           <p className="text-sm text-gray-200 whitespace-pre-line">
@@ -2202,6 +2180,7 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
   const mainImage = images[0];
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxStartIndex, setLightboxStartIndex] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
   const openLightbox = (idx) => (e) => {
     e.stopPropagation();
@@ -2209,10 +2188,12 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
     setLightboxOpen(true);
   };
 
+  const hasLongDescription = product.description && product.description.trim().length > 100;
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col relative group">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full min-h-[420px] relative group">
       {mainImage && (
-        <div className="w-full h-56 sm:h-64 bg-slate-100 flex-shrink-0">
+        <div className="w-full h-48 sm:h-52 bg-slate-100 flex-shrink-0">
           <img
             src={mainImage}
             alt={product.name}
@@ -2221,8 +2202,13 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
           />
         </div>
       )}
+      {product.badge && (
+        <span className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-lg bg-orange-500 text-white text-xs font-bold shadow">
+          {product.badge}
+        </span>
+      )}
       {isAdmin && (
-        <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition z-10">
+        <div className="absolute top-2 left-2 flex gap-2 opacity-0 group-hover:opacity-100 transition z-10">
           <button
             onClick={onEdit}
             className="p-2 bg-blue-100 text-blue-700 rounded-full"
@@ -2239,8 +2225,8 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
           </button>
         </div>
       )}
-      <div className="p-5 flex-grow flex flex-col">
-        <h3 className="text-lg font-bold text-slate-900 mb-1">
+      <div className="p-4 flex-grow flex flex-col min-h-0">
+        <h3 className="text-lg font-bold text-slate-900 mb-1.5 leading-tight">
           {product.name}
         </h3>
         {product.tags && product.tags.length > 0 && (
@@ -2248,38 +2234,47 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
             {product.tags.map((tag, idx) => (
               <span
                 key={idx}
-                className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700"
+                className="text-xs px-2 py-0.5 rounded-full bg-sky-50 text-sky-700"
               >
                 {tag}
               </span>
             ))}
           </div>
         )}
-        <p className="text-sm text-gray-600 whitespace-pre-line">
+        <p className={`text-sm text-gray-600 whitespace-pre-line ${expanded ? "" : "line-clamp-3"} flex-grow min-h-0`}>
           {product.description}
         </p>
+        {hasLongDescription && (
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="text-orange-500 text-sm font-medium mt-1 self-start hover:underline"
+          >
+            {expanded ? "הצג פחות" : "הצג עוד"}
+          </button>
+        )}
         {images.length > 1 && (
-          <div className="mt-3 flex gap-2 flex-wrap">
+          <div className="mt-2 flex gap-1.5 flex-wrap">
             {images.slice(1, 7).map((img, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={openLightbox(idx + 1)}
-                className="w-12 h-12 rounded border border-gray-200 overflow-hidden shrink-0 hover:ring-2 hover:ring-blue-400 transition"
+                className="w-10 h-10 rounded border border-gray-200 overflow-hidden shrink-0 hover:ring-2 hover:ring-orange-400 transition"
               >
                 <img
                   src={img}
-                  alt={`${product.name} ${idx + 2}`}
+                  alt=""
                   className="w-full h-full object-cover"
                 />
               </button>
             ))}
           </div>
         )}
-        <div className="mt-4 flex items-center justify-between">
-          {product.price && (
-            <div className="text-blue-700 font-extrabold text-xl">
-              ₪{product.price}
+        <div className="mt-auto pt-4 flex justify-between items-center gap-2">
+          {product.price != null && product.price !== "" && (
+            <div className="text-[#1e3a5f] font-extrabold text-xl">
+              ₪{formatPrice(product.price)}
             </div>
           )}
           <button
@@ -2289,7 +2284,7 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
                 category: "product",
               })
             }
-            className="px-4 py-2 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 flex items-center gap-1"
+            className="px-4 py-2.5 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 flex items-center gap-1.5 shrink-0"
           >
             <MessageCircle size={16} />
             פרטים בוואטסאפ
@@ -2321,6 +2316,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
         imagesText: (initialData.images && initialData.images.join("\n")) || initialData.imageUrl || "",
         description: initialData.description || "",
         tagsText: initialData.tags ? initialData.tags.join(", ") : "",
+        badge: initialData.badge || "",
       };
     }
     return {
@@ -2330,6 +2326,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
       imagesText: "",
       description: "",
       tagsText: "",
+      badge: "",
     };
   });
   const [newFiles, setNewFiles] = useState([]);
@@ -2379,6 +2376,7 @@ function ProductModal({ onClose, onSubmit, initialData }) {
         images,
         description: formData.description,
         tags,
+        badge: (formData.badge || "").trim(),
       },
       null
     );
@@ -2433,6 +2431,21 @@ function ProductModal({ onClose, onSubmit, initialData }) {
                 setFormData({ ...formData, price: e.target.value })
               }
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              תגית מבצע (אופציונלי)
+            </label>
+            <input
+              type="text"
+              className="w-full border rounded-lg p-2 text-sm"
+              placeholder="מבצע חם! / חדש בסניפים / הגיע חדש"
+              value={formData.badge || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, badge: e.target.value })
+              }
+            />
+            <p className="text-xs text-gray-500 mt-0.5">יופיע על כרטיס המוצר בפינה (כמו בחבילות).</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
