@@ -1,4 +1,4 @@
-const { useState, useEffect } = React;
+const { useState, useEffect, useMemo } = React;
 
 // --- Firebase (ענן) – קריאה/כתיבה אם הוגדר firebase-config.js ---
 function getDb() {
@@ -388,6 +388,8 @@ function App() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [packagesVisibleCount, setPackagesVisibleCount] = useState(3);
+  const [productsVisibleCount, setProductsVisibleCount] = useState(6);
+  const [draggedProductId, setDraggedProductId] = useState(null);
   const [promoMessage, setPromoMessage] = useState({
     title: "מבצעי השקה!",
     subtitle: "הצטרפו היום וקבלו סים במתנה",
@@ -476,7 +478,7 @@ function App() {
           setPackages(MARKET_DEALS.map((d, i) => ({ ...d, id: `demo-${i}` })));
         }
         if (productsList && productsList.length > 0) {
-          setProducts(productsList);
+          setProducts(productsList.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)));
         }
       })
       .catch((err) => {
@@ -664,7 +666,15 @@ function App() {
   // --- מוצרים – שמירה ב-Firestore בלבד (תמונות = קישורים, בלי Storage = בלי עלות) ---
   const handleSaveProduct = async (product, _newImageFiles) => {
     const db = getDb();
-    const payload = { name: product.name, price: product.price ?? null, description: product.description || "", tags: product.tags || [], images: product.images || [] };
+    const maxOrder = products.reduce((m, p) => Math.max(m, p.order ?? 0), 0);
+    const payload = {
+      name: product.name,
+      price: product.price ?? null,
+      description: product.description || "",
+      tags: product.tags || [],
+      images: product.images || [],
+      order: product.order != null ? product.order : maxOrder + 1,
+    };
 
     if (db) {
       try {
@@ -720,6 +730,24 @@ function App() {
       setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
       setProductToDelete(null);
       showMessage("המוצר נמחק", "success");
+    }
+  };
+
+  const handleProductsReorder = (reordered) => {
+    const withOrder = reordered.map((p, i) => ({ ...p, order: i }));
+    setProducts(withOrder);
+    const db = getDb();
+    if (db) {
+      Promise.all(
+        withOrder
+          .filter((p) => p.id && !String(p.id).startsWith("prod-"))
+          .map((p, i) => db.collection("products").doc(p.id).update({ order: i }))
+      )
+        .then(() => showMessage("סדר המוצרים נשמר", "success"))
+        .catch((err) => {
+          console.error(err);
+          showMessage("שגיאה בשמירת הסדר", "error");
+        });
     }
   };
 
@@ -825,6 +853,13 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
 
   const displayedPackages = filteredPackages.slice(0, packagesVisibleCount);
   const hasMorePackages = filteredPackages.length > packagesVisibleCount;
+
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
+    [products]
+  );
+  const displayedProducts = isAdmin ? sortedProducts : sortedProducts.slice(0, productsVisibleCount);
+  const hasMoreProducts = !isAdmin && sortedProducts.length > productsVisibleCount;
 
   // איפוס "הצג עוד" כשמשנים טאב או חיפוש
   useEffect(() => {
@@ -1129,21 +1164,73 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  isAdmin={isAdmin}
-                  onEdit={() => {
-                    setEditingProduct(product);
-                    setShowProductModal(true);
-                  }}
-                  onDelete={() => setProductToDelete(product)}
-                  onWhatsApp={handleWhatsAppClick}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {displayedProducts.map((product, index) => {
+                  const card = (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      isAdmin={isAdmin}
+                      onEdit={() => {
+                        setEditingProduct(product);
+                        setShowProductModal(true);
+                      }}
+                      onDelete={() => setProductToDelete(product)}
+                      onWhatsApp={handleWhatsAppClick}
+                    />
+                  );
+                  if (!isAdmin) return card;
+                  return (
+                    <div
+                      key={product.id}
+                      draggable
+                      onDragStart={() => setDraggedProductId(product.id)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add("ring-2", "ring-blue-400");
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove("ring-2", "ring-blue-400");
+                      }}
+                      onDragEnd={() => setDraggedProductId(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove("ring-2", "ring-blue-400");
+                        if (draggedProductId == null || draggedProductId === product.id) return;
+                        const fromIdx = sortedProducts.findIndex((p) => p.id === draggedProductId);
+                        const toIdx = sortedProducts.findIndex((p) => p.id === product.id);
+                        if (fromIdx === -1 || toIdx === -1) return;
+                        const next = [...sortedProducts];
+                        const [removed] = next.splice(fromIdx, 1);
+                        next.splice(toIdx, 0, removed);
+                        handleProductsReorder(next);
+                        setDraggedProductId(null);
+                      }}
+                      className={`cursor-grab active:cursor-grabbing ${draggedProductId === product.id ? "opacity-60" : ""}`}
+                    >
+                      {card}
+                    </div>
+                  );
+                })}
+              </div>
+              {hasMoreProducts && (
+                <div className="text-center mt-8">
+                  <button
+                    type="button"
+                    onClick={() => setProductsVisibleCount((c) => c + 6)}
+                    className="px-6 py-3 rounded-xl bg-slate-200 text-slate-800 font-bold hover:bg-slate-300 transition"
+                  >
+                    הצג עוד מוצרים
+                  </button>
+                </div>
+              )}
+              {isAdmin && sortedProducts.length > 1 && (
+                <p className="text-sm text-gray-500 mt-4 text-center">
+                  גרור כרטיס כדי לשנות סדר הצגת המוצרים
+                </p>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -2125,7 +2212,7 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col relative group">
       {mainImage && (
-        <div className="w-full h-40 bg-slate-100">
+        <div className="w-full h-56 sm:h-64 bg-slate-100 flex-shrink-0">
           <img
             src={mainImage}
             alt={product.name}
