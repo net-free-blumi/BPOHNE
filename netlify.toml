@@ -1,0 +1,10 @@
+# SPA – כל הנתיבים מגיעים ל־index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Edge Function לנתיבי /product/:id – OG tags למוצרים
+[[edge_functions]]
+  function = "product-og"
+  path = "/product/*"

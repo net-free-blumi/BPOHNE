@@ -20,9 +20,11 @@
 
 | רכיב | שירות | עלות |
 |------|-------|------|
-| Hosting | Cloudflare Pages | חינם |
-| OG Logic | Cloudflare Pages Functions | חינם (על Workers) |
+| Hosting | Netlify | חינם |
+| OG Logic | Netlify Edge Functions | חינם |
 | נתוני מוצרים | Firebase Firestore | חינם (Spark) |
+
+> האתר מריץ על **Netlify**. יש גם גרסה ל־Cloudflare Pages בתיקייה `functions/`.
 
 ---
 
@@ -37,21 +39,16 @@
 
 ---
 
-## שלב 2: Cloudflare Pages + Functions
+## שלב 2: Netlify – קבצים
 
-### א. אם האתר כבר על Cloudflare Pages
-
-1. ב־Dashboard: **Workers & Pages** → הפרויקט שלך
-2. Settings → **Functions** – וודא ש־Functions מופעלים
-
-### ב. מבנה קבצים חדש
+הפרויקט כולל:
 
 ```
 קוד לאתר ביפון/
-├── functions/
-│   └── product/
-│       └── [id].ts      ← חדש
-├── docs/
+├── netlify/
+│   └── edge-functions/
+│       └── product-og.ts    ← OG tags למוצרים
+├── netlify.toml             ← SPA redirect + Edge Function
 ├── app.jsx
 ├── index.html
 └── ...
@@ -59,43 +56,26 @@
 
 ---
 
-## שלב 3: קוד ה־Function
+## שלב 3: הוספת FIREBASE_SERVICE_ACCOUNT ל־Netlify
 
-הקובץ `functions/product/[id].ts` כבר נוצר בפרויקט. הפונקציה:
+> ⚠️ **חשוב**: האתר רץ על **Netlify** – צריך להגדיר את המשתנה ב־Netlify, לא ב־Cloudflare.
 
-- מזהה בוטים לפי User-Agent (WhatsApp, Facebook וכו')
-- שולפת את המוצר מ־Firestore עם Service Account
-- מחזירה HTML עם `og:title`, `og:image`, `og:description`
-- עבור משתמש רגיל – מפנה ל־`/#product-[id]` (302)
+### 3א. העתקת התוכן
 
-### התקנת תלויות
+1. פתח את קובץ ה־JSON של ה־Service Account
+2. בחר הכל (Ctrl+A) והעתק (Ctrl+C)
 
-```bash
-npm install
-```
+### 3ב. הוספה ב־Netlify Dashboard
 
----
-
-## שלב 4: הוספת ה־Service Account ל־Cloudflare Pages
-
-> ⚠️ **חשוב**: הקובץ `*-firebase-adminsdk*.json` נוסף ל־`.gitignore` – **לעולם אל תעלה אותו ל־Git**.
-
-### 4א. העתקת התוכן
-
-1. פתח את הקובץ שהורדת: `bphone-4e304-firebase-adminsdk-fbsvc-59c88f37f7.json`
-2. בחר הכל (Ctrl+A) והעתק (Ctrl+C) – כולל הסוגריים המסולסלים `{` ו־`}`
-
-### 4ב. הוספה ל־Cloudflare Dashboard
-
-1. היכנס ל־https://dash.cloudflare.com
-2. בתפריט צד: **Workers & Pages** → בחר את פרויקט האתר (B-Phone)
-3. לשונית **Settings** → גלול ל־**Environment variables**
-4. לחץ **Add variable** (או **Edit variables**)
-5. **Variable name**: `FIREBASE_SERVICE_ACCOUNT`
-6. **Value**: הדבק את כל תוכן ה־JSON שהעתקת
-7. סמן **Encrypt** (ברירת מחדל)
-8. בחר Environment: **Production** (ו־**Preview** אם תרצה לבדוק)
-9. **Save**
+1. היכנס ל־https://app.netlify.com
+2. בחר את האתר (b-phone)
+3. **Site configuration** → **Environment variables**
+4. **Add a variable** → **Add a single variable**
+5. **Key**: `FIREBASE_SERVICE_ACCOUNT`
+6. **Value**: הדבק את כל תוכן ה־JSON
+7. סמן **Sensitive** (מומלץ)
+8. **Save**
+9. **Trigger deploy** כדי שה־Edge Function יעבוד עם המשתנה החדש
 
 ---
 
@@ -121,18 +101,17 @@ npm install
 
 ---
 
-## בדיקה מקומית
+## בדיקה
 
 ```bash
-curl -A "WhatsApp/2.0" "https://yoursite.pages.dev/product/מוצר-id"
+curl -A "WhatsApp/2.0" "https://b-phone.netlify.app/product/Z4YIywg61Wg5ZYJkbhcp"
 ```
 
-צריך לקבל HTML עם `<meta property="og:title"` וכו׳.
+צריך לקבל HTML עם `<meta property="og:title"` ו־`og:image`.
 
 ---
 
 ## עלויות (סיכום)
 
-- Cloudflare Pages + Functions – **חינם**
+- Netlify + Edge Functions – **חינם**
 - Firebase Firestore – **חינם** עד 50K reads/day
-- אין צורך ב־Pro/Workers Paid
