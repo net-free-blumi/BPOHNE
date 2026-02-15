@@ -428,6 +428,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
+  const [productLightboxOpen, setProductLightboxOpen] = useState(false);
   const [advisorMessages, setAdvisorMessages] = useState([INITIAL_ADVISOR_MESSAGE]);
   const [accOpen, setAccOpen] = useState(false);
   const [accFontSize, setAccFontSize] = useState(() => {
@@ -1270,6 +1271,8 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                       onDelete={() => setProductToDelete(product)}
                       onWhatsApp={handleWhatsAppClick}
                       onShare={handleShareProduct}
+                      onLightboxOpen={() => setProductLightboxOpen(true)}
+                      onLightboxClose={() => setProductLightboxOpen(false)}
                     />
                   );
                   if (!isAdmin) return <div key={product.id} id={`product-${product.id || ""}`}>{card}</div>;
@@ -1719,8 +1722,8 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
 
       {typeof document !== "undefined" && document.body && window.ReactDOM && window.ReactDOM.createPortal(
         <>
-          {/* כפתור ביביפ – מוסתר כשהצ'אט פתוח; תמונה מעל מימין */}
-          {!showAiAdvisor && (
+          {/* כפתור ביביפ – מוסתר כשהצ'אט פתוח או כשמוצר/לייטאבוקס פתוח */}
+          {!showAiAdvisor && !showProductModal && !productLightboxOpen && (
             <div style={{ position: "fixed", bottom: "1.5rem", left: "1.5rem", zIndex: 99999, isolation: "isolate" }}>
               <button
                 type="button"
@@ -2527,7 +2530,7 @@ function ProductImageLightbox({ product, images, startIndex, onClose }) {
   );
 }
 
-function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare }) {
+function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare, onLightboxOpen, onLightboxClose }) {
   const images = (product.images && product.images.length > 0) ? product.images : (product.imageUrl ? [product.imageUrl] : []);
   const mainImage = images[0];
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -2538,6 +2541,11 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare }
     e.stopPropagation();
     setLightboxStartIndex(idx);
     setLightboxOpen(true);
+    onLightboxOpen?.();
+  };
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+    onLightboxClose?.();
   };
 
   const hasLongDescription = product.description && product.description.trim().length > 100;
@@ -2659,7 +2667,7 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare }
           product={product}
           images={images}
           startIndex={lightboxStartIndex}
-          onClose={() => setLightboxOpen(false)}
+          onClose={closeLightbox}
         />
       )}
     </div>
