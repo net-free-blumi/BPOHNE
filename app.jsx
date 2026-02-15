@@ -893,8 +893,8 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
   };
 
   const handleShareProduct = async (product) => {
-    const base = typeof window !== "undefined" ? (window.location.origin + window.location.pathname).replace(/\/$/, "") : "";
-    const productUrl = `${base}#product-${product.id || ""}`;
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    const productUrl = `${base}/product/${product.id || ""}`;
     const shareText = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
     const shareData = { title: product.name || "מוצר מ-B-Phone", text: shareText, url: productUrl };
     try {

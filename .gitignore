@@ -1,0 +1,9 @@
+# Firebase Service Account – לעולם אל תעלה ל-Git!
+*-firebase-adminsdk*.json
+firebase-adminsdk*.json
+
+# מקומיים / סודות
+.dev.vars
+.env
+.env.local
+node_modules/

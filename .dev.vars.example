@@ -1,0 +1,4 @@
+# העתק לקובץ בשם .dev.vars (בלי .example)
+# הדבק את תוכן קובץ ה-JSON של Firebase Service Account כמחרוזת אחת:
+
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"...@....iam.gserviceaccount.com",...}
