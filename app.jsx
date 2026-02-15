@@ -196,7 +196,10 @@ const DEFAULT_CONFIG = {
   whatsapp: "0527151000",
   // ברירת מחדל: לוגו מתוך קובץ מקומי בתיקיית logos
   logoUrl: "./logos/logo-bphone.png",
-  heroImageUrl: "",
+  heroBanners: [],
+  heroDefaultBannerIndex: -1,
+  heroBannerDurationSeconds: 5,
+  heroBannerRotation: true,
   locations: [
     {
       id: "bs",
@@ -420,6 +423,25 @@ function App() {
   const [accLinks, setAccLinks] = useState(() => {
     try { return localStorage.getItem("bphone_acc_links") === "1"; } catch { return false; }
   });
+  const [bannerIndex, setBannerIndex] = useState(0);
+
+  const heroBanners = Array.isArray(siteConfig.heroBanners) ? siteConfig.heroBanners : [];
+  const heroDefaultBannerIndex = typeof siteConfig.heroDefaultBannerIndex === "number" ? siteConfig.heroDefaultBannerIndex : -1;
+  const heroBannerDurationSeconds = Math.max(1, Math.min(60, siteConfig.heroBannerDurationSeconds ?? 5)) * 1000;
+  const useBannerRotation = siteConfig.heroBannerRotation !== false && heroBanners.length > 1;
+  const hasBanner = heroBanners.length > 0 && heroDefaultBannerIndex >= 0;
+
+  useEffect(() => {
+    if (hasBanner && heroDefaultBannerIndex >= 0) setBannerIndex(heroDefaultBannerIndex);
+  }, [hasBanner, heroDefaultBannerIndex]);
+
+  useEffect(() => {
+    if (!useBannerRotation || heroBanners.length < 2) return;
+    const t = setInterval(() => {
+      setBannerIndex((i) => (i + 1) % heroBanners.length);
+    }, heroBannerDurationSeconds);
+    return () => clearInterval(t);
+  }, [useBannerRotation, heroBanners.length, heroBannerDurationSeconds]);
 
   useEffect(() => {
     try {
@@ -477,7 +499,16 @@ function App() {
     ])
       .then(([configData, packagesList, productsList]) => {
         if (configData) {
-          setSiteConfig((prev) => ({ ...DEFAULT_CONFIG, ...configData, locations: configData.locations || prev.locations, services: configData.services || prev.services }));
+          setSiteConfig((prev) => {
+            const merged = { ...DEFAULT_CONFIG, ...configData, locations: configData.locations || prev.locations, services: configData.services || prev.services };
+            if (!merged.logoUrl) merged.logoUrl = DEFAULT_CONFIG.logoUrl;
+            if (!Array.isArray(merged.heroBanners)) {
+              merged.heroBanners = merged.heroImageUrl ? [merged.heroImageUrl] : [];
+            }
+            if (typeof merged.heroDefaultBannerIndex !== "number") merged.heroDefaultBannerIndex = merged.heroBanners.length > 0 ? 0 : -1;
+            if (typeof merged.heroBannerDurationSeconds !== "number") merged.heroBannerDurationSeconds = 5;
+            return merged;
+          });
           if (configData.promoMessage) setPromoMessage((prev) => ({ ...prev, ...configData.promoMessage }));
         }
         if (packagesList && packagesList.length > 0) {
@@ -1012,28 +1043,44 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         )}
       </nav>
 
-      {/* Hero / באנר ביפון – כחול כהה, תמונה אופציונלית, קישורי קטגוריות */}
+      {/* Hero / באנר ביפון – גובה נמוך, רוחב מלא לראות את רוב התמונה */}
       <div
         id="promos"
-        className={`relative ${bphoneNavy} text-white overflow-hidden min-h-[320px] flex flex-col justify-center transition-all duration-500`}
-        style={
-          siteConfig.heroImageUrl
-            ? {
-                backgroundImage: `url(${siteConfig.heroImageUrl})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }
-            : {}
-        }
+        className={`relative ${bphoneNavy} text-white overflow-hidden min-h-[200px] sm:min-h-[220px] flex flex-col justify-center transition-all duration-500`}
       >
-        {siteConfig.heroImageUrl && (
-          <div className="absolute inset-0 bg-[#1e3a5f]/85 z-0" />
+        {hasBanner && useBannerRotation && heroBanners.map((url, i) => (
+          <div
+            key={url}
+            className="absolute inset-0 z-0 transition-opacity duration-[1.2s] ease-in-out bg-center"
+            style={{
+              backgroundImage: `url(${url})`,
+              backgroundSize: "100% auto",
+              backgroundRepeat: "no-repeat",
+              opacity: i === bannerIndex ? 1 : 0,
+              zIndex: i === bannerIndex ? 1 : 0,
+              pointerEvents: "none",
+            }}
+          />
+        ))}
+        {hasBanner && !useBannerRotation && heroBanners[heroDefaultBannerIndex] && (
+          <div
+            className="absolute inset-0 z-0 bg-center"
+            style={{
+              backgroundImage: `url(${heroBanners[heroDefaultBannerIndex]})`,
+              backgroundSize: "100% auto",
+              backgroundRepeat: "no-repeat",
+              pointerEvents: "none",
+            }}
+          />
         )}
-        {!siteConfig.heroImageUrl && (
+        {hasBanner && (
+          <div className="absolute inset-0 bg-[#1e3a5f]/60 z-[2]" aria-hidden />
+        )}
+        {!hasBanner && (
           <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orange-500/30 to-transparent" />
         )}
 
-        <div className="max-w-7xl mx-auto px-4 py-12 sm:py-16 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8 relative z-20">
           {isAdmin ? (
             <div className="text-center mb-6">
               <PromoEditor promoMessage={promoMessage} onSave={handleUpdatePromo} />
@@ -1579,6 +1626,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           config={siteConfig}
           onClose={() => setShowSettingsModal(false)}
           onSave={handleUpdateConfig}
+          showMessage={showMessage}
         />
       )}
 
@@ -1898,8 +1946,68 @@ function LoginModal({ onClose, onLogin, onLoginGoogle, useFirebase }) {
   );
 }
 
-function SettingsModal({ config, onClose, onSave }) {
-  const [formData, setFormData] = useState(config);
+function SettingsModal({ config, onClose, onSave, showMessage }) {
+  const [formData, setFormData] = useState(() => ({
+    ...config,
+    heroBanners: Array.isArray(config.heroBanners) ? [...config.heroBanners] : [],
+    heroDefaultBannerIndex: typeof config.heroDefaultBannerIndex === "number" ? config.heroDefaultBannerIndex : -1,
+    heroBannerDurationSeconds: typeof config.heroBannerDurationSeconds === "number" ? config.heroBannerDurationSeconds : 5,
+  }));
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const handleLogoUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (!IMGBB_API_KEY) {
+      showMessage?.("הוסף מפתח ImgBB ב־index.html להעלאת תמונות", "error");
+      return;
+    }
+    setLogoUploading(true);
+    const url = await uploadImageToImgBB(files[0]);
+    setLogoUploading(false);
+    if (url) {
+      setFormData((prev) => ({ ...prev, logoUrl: url }));
+      showMessage?.("הלוגו הועלה בהצלחה", "success");
+    } else {
+      showMessage?.("ההעלאה נכשלה – נסה שוב", "error");
+    }
+    e.target.value = "";
+  };
+
+  const handleBannerUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (!IMGBB_API_KEY) {
+      showMessage?.("הוסף מפתח ImgBB ב־index.html להעלאת תמונות", "error");
+      return;
+    }
+    setBannerUploading(true);
+    const urls = [];
+    for (let i = 0; i < files.length; i++) {
+      const url = await uploadImageToImgBB(files[i]);
+      if (url) urls.push(url);
+    }
+    setBannerUploading(false);
+    if (urls.length > 0) {
+      setFormData((prev) => ({ ...prev, heroBanners: [...(prev.heroBanners || []), ...urls] }));
+      showMessage?.(`הועלו ${urls.length} תמונות`, "success");
+    } else if (files.length > 0) {
+      showMessage?.("ההעלאה נכשלה – נסה שוב", "error");
+    }
+    e.target.value = "";
+  };
+
+  const handleBannerDelete = (idx) => {
+    setFormData((prev) => {
+      const next = [...(prev.heroBanners || [])];
+      next.splice(idx, 1);
+      let defaultIdx = prev.heroDefaultBannerIndex ?? -1;
+      if (defaultIdx === idx) defaultIdx = -1;
+      else if (defaultIdx > idx) defaultIdx--;
+      return { ...prev, heroBanners: next, heroDefaultBannerIndex: defaultIdx };
+    });
+  };
 
   const handleLocationChange = (index, field, value) => {
     const newLocs = [...formData.locations];
@@ -1935,33 +2043,139 @@ function SettingsModal({ config, onClose, onSave }) {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold mb-1">
-                לוגו האתר (קישור)
+              <label className="block text-sm font-bold mb-2">
+                לוגו האתר
               </label>
-              <input
-                type="text"
-                value={formData.logoUrl || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, logoUrl: e.target.value })
-                }
-                placeholder="https://..."
-                className="w-full border rounded-lg p-2"
-              />
+              <p className="text-sm text-gray-600 mb-2">
+                העלה תמונה או השתמש בלוגו ברירת מחדל
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-200 transition text-sm font-medium">
+                  <ImageIcon size={16} />
+                  {logoUploading ? "מעלה..." : "בחר קובץ / העלה לוגו"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                    disabled={logoUploading}
+                  />
+                </label>
+                {formData.logoUrl && (
+                  <>
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <img src={formData.logoUrl} alt="לוגו נוכחי" className="h-10 w-auto object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "" }))}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                        title="מחק לוגו"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={formData.logoUrl || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, logoUrl: e.target.value })
+                  }
+                  placeholder="או הזן קישור ישיר"
+                  className="flex-1 border rounded-lg p-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "./logos/logo-bphone.png" }))}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 whitespace-nowrap"
+                >
+                  ברירת מחדל
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold mb-1">
-                תמונת נושא (רקע עליון)
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold mb-2">
+                באנר ראשי
               </label>
-              <input
-                type="text"
-                value={formData.heroImageUrl || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, heroImageUrl: e.target.value })
-                }
-                placeholder="https://... או נתיב מקומי כמו ./images/banner.jpg"
-                className="w-full border rounded-lg p-2"
-              />
-              <p className="text-xs text-gray-500 mt-1">לבאנר ראשי: שים תמונה בתיקייה (למשל images/) והזן את הנתיב.</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">ברירת מחדל</label>
+                  <select
+                    value={formData.heroDefaultBannerIndex ?? -1}
+                    onChange={(e) =>
+                      setFormData({ ...formData, heroDefaultBannerIndex: parseInt(e.target.value, 10) })
+                    }
+                    className="w-full border rounded-lg p-2"
+                  >
+                    <option value={-1}>ללא באנר (רקע כחול רגיל)</option>
+                    {(formData.heroBanners || []).map((_, idx) => (
+                      <option key={idx} value={idx}>באנר {idx + 1}</option>
+                    ))}
+                  </select>
+                </div>
+                {(formData.heroBanners || []).length > 0 && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">משך כל באנר (שניות)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={formData.heroBannerDurationSeconds ?? 5}
+                        onChange={(e) =>
+                          setFormData({ ...formData, heroBannerDurationSeconds: Math.max(1, Math.min(60, parseInt(e.target.value, 10) || 5)) })
+                        }
+                        className="w-full border rounded-lg p-2"
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!formData.heroBannerRotation}
+                        onChange={(e) =>
+                          setFormData({ ...formData, heroBannerRotation: e.target.checked })
+                        }
+                      />
+                      <span className="text-sm font-medium">החלפת באנרים אוטומטית</span>
+                    </label>
+                  </>
+                )}
+              </div>
+              <div className="mt-3 space-y-2">
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-200 transition text-sm font-medium">
+                  <ImageIcon size={16} />
+                  {bannerUploading ? "מעלה..." : "העלה באנרים"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleBannerUpload}
+                    disabled={bannerUploading}
+                  />
+                </label>
+                {(formData.heroBanners || []).length > 0 && (
+                  <div className="space-y-2 border rounded-lg p-3 bg-gray-50">
+                    {(formData.heroBanners || []).map((url, idx) => (
+                      <div key={url} className="flex items-center gap-3 p-2 bg-white rounded">
+                        <img src={url} alt={`באנר ${idx + 1}`} className="h-12 w-24 object-cover rounded flex-shrink-0" />
+                        <span className="text-sm text-gray-600 flex-grow">באנר {idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleBannerDelete(idx)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                          title="מחק באנר"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2029,7 +2243,7 @@ function SettingsModal({ config, onClose, onSave }) {
           ))}
 
           <h4 className="font-bold text-lg text-blue-800 border-b pb-2 mt-8">
-            שירותים (סמלים וטקסט)
+            שירותים
           </h4>
           <div className="grid gap-4">
             {formData.services.map((service, idx) => (
@@ -2037,19 +2251,9 @@ function SettingsModal({ config, onClose, onSave }) {
                 key={idx}
                 className="bg-gray-50 p-3 rounded flex flex-col md:flex-row gap-3 items-start md:items-center"
               >
-                <div className="flex-shrink-0 bg-white p-2 rounded border">
-                  {service.iconUrl ? (
-                    <img
-                      src={service.iconUrl}
-                      className="w-6 h-6 object-contain"
-                    />
-                  ) : (
-                    <ImageIcon size={24} className="text-gray-400" />
-                  )}
-                </div>
-                <div className="flex-grow w-full grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="flex-grow w-full grid grid-cols-1 md:grid-cols-2 gap-2">
                   <input
-                    className="border rounded p-1 text-sm"
+                    className="border rounded p-2 text-sm"
                     placeholder="כותרת"
                     value={service.title}
                     onChange={(e) =>
@@ -2057,19 +2261,11 @@ function SettingsModal({ config, onClose, onSave }) {
                     }
                   />
                   <input
-                    className="border rounded p-1 text-sm"
+                    className="border rounded p-2 text-sm"
                     placeholder="תיאור"
                     value={service.desc}
                     onChange={(e) =>
                       handleServiceChange(idx, "desc", e.target.value)
-                    }
-                  />
-                  <input
-                    className="border rounded p-1 text-sm"
-                    placeholder="קישור לאייקון (אופציונלי)"
-                    value={service.iconUrl || ""}
-                    onChange={(e) =>
-                      handleServiceChange(idx, "iconUrl", e.target.value)
                     }
                   />
                 </div>
