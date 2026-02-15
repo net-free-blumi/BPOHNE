@@ -99,6 +99,14 @@ const Bot = ({ size = 28, className = "" }) => (
     <rect x="9" y="2" width="6" height="4" rx="1" />
   </svg>
 );
+const Share2 = ({ size = 20, className = "" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="M8.59 13.51l6.82 3.98M15.41 6.51l-6.82 3.98" />
+  </svg>
+);
 const ArrowUp = ({ size = 24, className = "" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <path d="M12 19V5M5 12l7-7 7 7" />
@@ -196,6 +204,7 @@ const DEFAULT_CONFIG = {
   whatsapp: "0527151000",
   // ברירת מחדל: לוגו מתוך קובץ מקומי בתיקיית logos
   logoUrl: "./logos/logo-bphone.png",
+  botLogoUrl: "",
   heroBanners: [],
   heroDefaultBannerIndex: -1,
   heroBannerDurationSeconds: 5,
@@ -255,11 +264,13 @@ const PROVIDER_LOGO_PRESETS = [
   { key: "bezeq", label: "Bezeq Fiber", path: "./logos/bezeq.png" },
 ];
 
-// --- B-Bot: יועץ AI (Gemini) עם חבילות, מוצרים ופרטי החנות ---
-function AiAdvisor({ packages = [], products = [], siteConfig = {}, onClose }) {
-  const [messages, setMessages] = useState([
-    { role: "assistant", text: "היי! 👋 אני B-Bot, היועץ של B-Phone. אפשר לשאול אותי על חבילות סלולר ואינטרנט, מוצרים, שעות הפתיחה או כל שאלה – ואשמח לכוון אותך. בסוף אפשר גם לשלוח לנו בוואטסאפ!" }
-  ]);
+const INITIAL_ADVISOR_MESSAGE = { role: "assistant", text: "היי! 👋 אני ביביפ, היועץ של B-Phone. אפשר לשאול אותי על חבילות סלולר ואינטרנט, מוצרים, שעות הפתיחה או כל שאלה – ואשמח לכוון אותך. בסוף אפשר גם לשלוח לנו בוואטסאפ!" };
+
+// --- ביביפ: יועץ AI (Gemini) עם חבילות, מוצרים ופרטי החנות ---
+function AiAdvisor({ packages = [], products = [], siteConfig = {}, onClose, messages: externalMessages, onMessagesChange }) {
+  const [internalMessages, setInternalMessages] = useState([INITIAL_ADVISOR_MESSAGE]);
+  const messages = externalMessages !== undefined ? externalMessages : internalMessages;
+  const setMessages = onMessagesChange || setInternalMessages;
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = React.useRef(null);
@@ -269,7 +280,7 @@ function AiAdvisor({ packages = [], products = [], siteConfig = {}, onClose }) {
   }, [messages]);
 
   const systemPrompt = `
-אתה B-Bot, יועץ מכירות ותמיכה ידידותי ומומחה של חנות "B-Phone" בישראל (בית שמש וביתר).
+אתה ביביפ, יועץ מכירות ותמיכה ידידותי ומומחה של חנות "B-Phone" בישראל (בית שמש וביתר).
 
 **מידע על החנות (חובה להכיר):**
 - כתובות ושעות: ${JSON.stringify(siteConfig.locations || [])}
@@ -320,17 +331,21 @@ ${JSON.stringify(products.map(p => ({ name: p.name, price: p.price, description:
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-end p-0 sm:p-4" dir="rtl">
+    <div className="fixed inset-0 z-[60] flex items-end justify-end p-0 sm:p-4 pb-4" dir="rtl">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-      <div className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-200 sm:ml-4">
+      <div className="relative w-full max-w-lg bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200 sm:rounded-b-3xl sm:ml-4" style={{ marginBottom: "0.5rem" }}>
         {/* כותרת חמודה */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-3xl shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-              <Bot size={24} className="text-white" />
+        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-3xl shrink-0 overflow-visible">
+          <div className="flex items-center gap-2 overflow-visible">
+            <div className={`flex items-end justify-center overflow-visible ${siteConfig?.botLogoUrl ? "bg-transparent -mb-5" : "rounded-full bg-white/20 w-12 h-12"}`}>
+              {siteConfig?.botLogoUrl ? (
+                <img src={siteConfig.botLogoUrl} alt="ביביפ" className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-lg" style={{ minWidth: "80px", minHeight: "80px" }} />
+              ) : (
+                <Bot size={28} className="text-white" />
+              )}
             </div>
             <div>
-              <h3 className="font-bold text-lg">B-Bot</h3>
+              <h3 className="font-bold text-lg">ביביפ</h3>
               <p className="text-xs text-blue-100">יועץ החנות – כאן בשבילך</p>
             </div>
           </div>
@@ -413,6 +428,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
+  const [advisorMessages, setAdvisorMessages] = useState([INITIAL_ADVISOR_MESSAGE]);
   const [accOpen, setAccOpen] = useState(false);
   const [accFontSize, setAccFontSize] = useState(() => {
     try { return localStorage.getItem("bphone_acc_font") || "normal"; } catch { return "normal"; }
@@ -424,6 +440,14 @@ function App() {
     try { return localStorage.getItem("bphone_acc_links") === "1"; } catch { return false; }
   });
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 200);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const heroBanners = Array.isArray(siteConfig.heroBanners) ? siteConfig.heroBanners : [];
   const heroDefaultBannerIndex = typeof siteConfig.heroDefaultBannerIndex === "number" ? siteConfig.heroDefaultBannerIndex : -1;
@@ -867,6 +891,48 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     window.open(url, "_blank");
   };
 
+  const handleShareProduct = async (product) => {
+    const base = typeof window !== "undefined" ? (window.location.origin + window.location.pathname).replace(/\/$/, "") : "";
+    const productUrl = `${base}#product-${product.id || ""}`;
+    const shareText = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
+    const shareData = { title: product.name || "מוצר מ-B-Phone", text: shareText, url: productUrl };
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        showMessage("המוצר שותף בהצלחה!", "success");
+        return;
+      }
+    } catch (e) {
+      if (e.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n${productUrl}`);
+      showMessage("הקישור הועתק להדבקה!", "success");
+    } catch {
+      const fallback = `${shareText}\n${productUrl}`;
+      const ta = document.createElement("textarea");
+      ta.value = fallback;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showMessage("הקישור הועתק להדבקה!", "success");
+    }
+  };
+
+  useEffect(() => {
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    if (hash && hash.startsWith("#product-")) {
+      const id = hash.slice(1);
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, []);
+
   // --- מיפוי קטגוריה לטקסט לחיפוש ---
   const categoryToLabel = { all: "", kosher: "כשר", "4g": "דור 4", "5g": "דור 5", internet: "אינטרנט ביתי" };
 
@@ -1203,12 +1269,14 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                       }}
                       onDelete={() => setProductToDelete(product)}
                       onWhatsApp={handleWhatsAppClick}
+                      onShare={handleShareProduct}
                     />
                   );
-                  if (!isAdmin) return card;
+                  if (!isAdmin) return <div key={product.id} id={`product-${product.id || ""}`}>{card}</div>;
                   return (
                     <div
                       key={product.id}
+                      id={`product-${product.id || ""}`}
                       draggable
                       onDragStart={() => setDraggedProductId(product.id)}
                       onDragOver={(e) => {
@@ -1520,13 +1588,16 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         </div>
       </footer>
 
-      {/* כפתור חזרה לראש הדף */}
+      {/* כפתור חזרה לראש הדף – מימין, מופיע רק אחרי גלילה */}
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-[#1e3a5f] text-white shadow-lg hover:bg-orange-500 hover:scale-110 transition-all flex items-center justify-center"
+        className={`fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-[#1e3a5f] text-white shadow-lg hover:bg-orange-500 hover:scale-110 flex items-center justify-center transition-all duration-300 ${
+          showScrollTop ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
         title="חזרה לראש הדף"
         aria-label="חזרה לראש הדף"
+        aria-hidden={!showScrollTop}
       >
         <ArrowUp size={24} />
       </button>
@@ -1576,27 +1647,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             </div>
           </div>
         </div>
-      )}
-
-      {/* B-Bot – כפתור צף */}
-      <button
-        type="button"
-        onClick={() => setShowAiAdvisor(true)}
-        className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl bg-blue-600 text-white shadow-lg hover:bg-blue-700 hover:scale-105 transition-all font-bold"
-        title="התייעץ עם B-Bot"
-        aria-label="התייעץ עם B-Bot"
-      >
-        <Bot size={28} />
-        <span className="hidden sm:inline">התייעץ עם B-Bot</span>
-      </button>
-
-      {showAiAdvisor && (
-        <AiAdvisor
-          packages={packages}
-          products={products}
-          siteConfig={siteConfig}
-          onClose={() => setShowAiAdvisor(false)}
-        />
       )}
 
       {/* Modals */}
@@ -1665,6 +1715,49 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {typeof document !== "undefined" && document.body && window.ReactDOM && window.ReactDOM.createPortal(
+        <>
+          {/* כפתור ביביפ – מוסתר כשהצ'אט פתוח; תמונה מעל מימין */}
+          {!showAiAdvisor && (
+            <div style={{ position: "fixed", bottom: "1.5rem", left: "1.5rem", zIndex: 99999, isolation: "isolate" }}>
+              <button
+                type="button"
+                onClick={() => setShowAiAdvisor(true)}
+                className={`relative flex items-center gap-2 px-4 py-3 rounded-2xl bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-105 transition-all border-2 border-white/30 overflow-visible ${siteConfig?.botLogoUrl ? "justify-center" : ""}`}
+                title="התייעץ עם ביביפ"
+                aria-label="התייעץ עם ביביפ"
+                style={{ minHeight: "48px", fontFamily: "'Rubik', sans-serif" }}
+              >
+                {siteConfig?.botLogoUrl ? (
+                  <>
+                    <span className="absolute right-0 bottom-full mb-0.5">
+                      <img src={siteConfig.botLogoUrl} alt="" className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-lg block" />
+                    </span>
+                    <span className="font-medium text-[0.95rem]">התייעץ עם ביביפ</span>
+                  </>
+                ) : (
+                  <>
+                    <Bot size={28} className="flex-shrink-0" />
+                    <span className="font-medium text-[0.95rem]">התייעץ עם ביביפ</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {showAiAdvisor && (
+            <AiAdvisor
+              packages={packages}
+              products={products}
+              siteConfig={siteConfig}
+              onClose={() => setShowAiAdvisor(false)}
+              messages={advisorMessages}
+              onMessagesChange={setAdvisorMessages}
+            />
+          )}
+        </>,
+        document.body
       )}
     </div>
   );
@@ -1955,6 +2048,7 @@ function SettingsModal({ config, onClose, onSave, showMessage }) {
   }));
   const [bannerUploading, setBannerUploading] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [botLogoUploading, setBotLogoUploading] = useState(false);
 
   const handleLogoUpload = async (e) => {
     const files = e.target.files;
@@ -1969,6 +2063,25 @@ function SettingsModal({ config, onClose, onSave, showMessage }) {
     if (url) {
       setFormData((prev) => ({ ...prev, logoUrl: url }));
       showMessage?.("הלוגו הועלה בהצלחה", "success");
+    } else {
+      showMessage?.("ההעלאה נכשלה – נסה שוב", "error");
+    }
+    e.target.value = "";
+  };
+
+  const handleBotLogoUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (!IMGBB_API_KEY) {
+      showMessage?.("הוסף מפתח ImgBB ב־index.html להעלאת תמונות", "error");
+      return;
+    }
+    setBotLogoUploading(true);
+    const url = await uploadImageToImgBB(files[0]);
+    setBotLogoUploading(false);
+    if (url) {
+      setFormData((prev) => ({ ...prev, botLogoUrl: url }));
+      showMessage?.("לוגו ביביפ הועלה בהצלחה", "success");
     } else {
       showMessage?.("ההעלאה נכשלה – נסה שוב", "error");
     }
@@ -2095,6 +2208,49 @@ function SettingsModal({ config, onClose, onSave, showMessage }) {
                   ברירת מחדל
                 </button>
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2">
+                לוגו ביביפ (אייקון הבוט)
+              </label>
+              <p className="text-sm text-gray-600 mb-2">
+                העלה תמונה עם רקע שקוף (PNG)
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-200 transition text-sm font-medium">
+                  <ImageIcon size={16} />
+                  {botLogoUploading ? "מעלה..." : "בחר קובץ / העלה לוגו ביביפ"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleBotLogoUpload}
+                    disabled={botLogoUploading}
+                  />
+                </label>
+                {formData.botLogoUrl && (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <img src={formData.botLogoUrl} alt="לוגו ביביפ" className="h-12 w-12 object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, botLogoUrl: "" }))}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                      title="מחק לוגו"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <input
+                type="text"
+                value={formData.botLogoUrl || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, botLogoUrl: e.target.value })
+                }
+                placeholder="או הזן קישור ישיר"
+                className="w-full border rounded-lg p-2 mt-2 text-sm"
+              />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-bold mb-2">
@@ -2371,7 +2527,7 @@ function ProductImageLightbox({ product, images, startIndex, onClose }) {
   );
 }
 
-function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
+function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare }) {
   const images = (product.images && product.images.length > 0) ? product.images : (product.imageUrl ? [product.imageUrl] : []);
   const mainImage = images[0];
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -2389,13 +2545,24 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full min-h-[420px] relative group">
       {mainImage && (
-        <div className="w-full h-48 sm:h-52 bg-slate-100 flex-shrink-0">
+        <div className="w-full h-48 sm:h-52 bg-slate-100 flex-shrink-0 relative">
           <img
             src={mainImage}
             alt={product.name}
             className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition"
             onClick={openLightbox(0)}
           />
+          {onShare && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onShare(product); }}
+              className="absolute top-2 left-2 z-10 p-2 rounded-full bg-white/90 hover:bg-white shadow-md hover:shadow-lg transition text-[#1e3a5f]"
+              title="שתף מוצר"
+              aria-label="שתף מוצר"
+            >
+              <Share2 size={18} />
+            </button>
+          )}
         </div>
       )}
       {product.badge && (
