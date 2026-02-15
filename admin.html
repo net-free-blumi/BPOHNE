@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <title>ניהול B-Phone | פאנל מנהלים</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="./logos/logo-bphone.png">
+    <meta name="robots" content="noindex, nofollow">
+
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="./firebase-config.js"></script>
+
+    <style>
+      * { font-family: 'Rubik', sans-serif; }
+    </style>
+  </head>
+  <body class="bg-slate-100 min-h-screen">
+    <div id="root"></div>
+
+    <script>
+      window.IMGBB_API_KEY = "d812973a77f1d757a2b824ce7f5a1aeb";
+    </script>
+    <script type="text/babel" src="./admin.jsx" data-presets="react"></script>
+  </body>
+</html>

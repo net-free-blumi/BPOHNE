@@ -402,28 +402,18 @@ ${JSON.stringify(products.map(p => ({ name: p.name, price: p.price, description:
 
 // --- קומפוננטת האפליקציה הראשית (ללא Firebase, דמו מקומי מקצועי) ---
 function App() {
-  const [isAdmin, setIsAdmin] = useState(false);
   const [packages, setPackages] = useState([]);
-  const [editingPackage, setEditingPackage] = useState(null);
-  const [packageToDelete, setPackageToDelete] = useState(null);
   const [products, setProducts] = useState([]);
-  const [productToDelete, setProductToDelete] = useState(null);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [showProductModal, setShowProductModal] = useState(false);
   const [siteConfig, setSiteConfig] = useState(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [packagesVisibleCount, setPackagesVisibleCount] = useState(3);
   const [productsVisibleCount, setProductsVisibleCount] = useState(6);
-  const [draggedProductId, setDraggedProductId] = useState(null);
   const [promoMessage, setPromoMessage] = useState({
     title: "מבצעי השקה!",
     subtitle: "הצטרפו היום וקבלו סים במתנה",
     active: true,
   });
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -442,6 +432,7 @@ function App() {
   });
   const [bannerIndex, setBannerIndex] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const isAdmin = false; // ממשק ניהול הועבר ל-admin.html
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 200);
@@ -490,27 +481,11 @@ function App() {
   // --- טעינה מהענן (Firebase) או דמו מקומי ---
   useEffect(() => {
     const db = getDb();
-    const auth = getAuth();
-
-    const unsubAuth = auth
-      ? auth.onAuthStateChanged((user) => {
-          if (!user) {
-            setIsAdmin(false);
-            return;
-          }
-          if (!isAllowedAdmin(user.email)) {
-            auth.signOut();
-            setIsAdmin(false);
-            return;
-          }
-          setIsAdmin(true);
-        })
-      : () => {};
 
     if (!db) {
       setPackages(MARKET_DEALS.map((d, i) => ({ ...d, id: `demo-${i}` })));
       setLoading(false);
-      return () => unsubAuth();
+      return;
     }
 
     const configRef = db.doc("config/site");
@@ -537,7 +512,7 @@ function App() {
           if (configData.promoMessage) setPromoMessage((prev) => ({ ...prev, ...configData.promoMessage }));
         }
         if (packagesList && packagesList.length > 0) {
-          setPackages(packagesList.sort((a, b) => (a.price || 0) - (b.price || 0)));
+          setPackages(packagesList.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)));
         } else {
           setPackages(MARKET_DEALS.map((d, i) => ({ ...d, id: `demo-${i}` })));
         }
@@ -550,306 +525,7 @@ function App() {
         setPackages(MARKET_DEALS.map((d, i) => ({ ...d, id: `demo-${i}` })));
       })
       .finally(() => setLoading(false));
-
-    return () => unsubAuth();
   }, []);
-
-  // --- כניסת מנהל: גוגל (2 המיילים ברשימה) / מייל+סיסמה קבועים / מקומי 1234. כולם מקבלים אותן הרשאות. ---
-  const handleLogin = (email, password) => {
-    const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
-    const trimmedPassword = typeof password === "string" ? password : "";
-    if (!trimmedEmail || !trimmedPassword) {
-      showMessage("נא למלא אימייל וסיסמה.", "error");
-      return;
-    }
-    if (trimmedEmail === "bp0527151000@gmail.com" && trimmedPassword === "123456") {
-      setIsAdmin(true);
-      setShowLoginModal(false);
-      showMessage("התחברת בהצלחה", "success");
-      return;
-    }
-    const auth = getAuth();
-    if (auth) {
-      showMessage("אימייל או סיסמה לא נכונים. נסה שוב.", "error");
-      return;
-    }
-    // מצב מקומי בלי Firebase
-    if (trimmedPassword === "1234") {
-      setIsAdmin(true);
-      setShowLoginModal(false);
-      showMessage("התחברת בהצלחה", "success");
-    } else {
-      showMessage("סיסמה שגויה. נסה 1234", "error");
-    }
-  };
-
-  const handleLoginGoogle = () => {
-    const auth = getAuth();
-    if (!auth || typeof window.firebase === "undefined" || !window.firebase.auth.GoogleAuthProvider) {
-      showMessage("התחברות עם גוגל אינה זמינה. בדוק את הגדרות Firebase.", "error");
-      return;
-    }
-    const provider = new window.firebase.auth.GoogleAuthProvider();
-    auth
-      .signInWithPopup(provider)
-      .then((credential) => {
-        const user = credential && credential.user;
-        if (!user || !isAllowedAdmin(user.email)) {
-          auth.signOut();
-          showMessage("אין לך הרשאה לגשת לאזור הניהול. רק מנהלים מורשים יכולים להתחבר.", "error");
-          return;
-        }
-        setShowLoginModal(false);
-        showMessage("התחברת בהצלחה עם גוגל", "success");
-      })
-      .catch((err) => {
-        if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
-          return;
-        }
-        const msg = err.code === "auth/popup-blocked"
-          ? "הדפדפן חסם את חלון גוגל. אפשר חלונות קופצים ונסה שוב."
-          : "התחברות עם גוגל נכשלה. נסה שוב.";
-        showMessage(msg, "error");
-      });
-  };
-
-  const handleSavePackage = (pkg) => {
-    const db = getDb();
-    const payload = { ...pkg };
-    delete payload.id;
-
-    if (db) {
-      const packagesRef = db.collection("packages");
-      if (pkg.id && pkg.id.startsWith("demo-") === false) {
-        packagesRef
-          .doc(pkg.id)
-          .update(payload)
-          .then(() => {
-            setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, ...pkg } : p)));
-            setEditingPackage(null);
-            setShowAdminModal(false);
-            showMessage("החבילה עודכנה בהצלחה", "success");
-          })
-          .catch((err) => {
-            console.error(err);
-            showMessage("שגיאה בשמירה לענן", "error");
-          });
-      } else {
-        packagesRef
-          .add(payload)
-          .then((ref) => {
-            setPackages((prev) => [...prev, { ...pkg, id: ref.id }].sort((a, b) => (a.price || 0) - (b.price || 0)));
-            setEditingPackage(null);
-            setShowAdminModal(false);
-            showMessage("החבילה נשמרה בהצלחה", "success");
-          })
-          .catch((err) => {
-            console.error(err);
-            showMessage("שגיאה בשמירה לענן", "error");
-          });
-      }
-    } else {
-      setPackages((prev) => {
-        if (pkg.id && prev.some((p) => p.id === pkg.id)) {
-          return prev.map((p) => (p.id === pkg.id ? { ...p, ...pkg } : p));
-        }
-        return [...prev, { ...pkg, id: `local-${Date.now()}-${prev.length}` }];
-      });
-      setEditingPackage(null);
-      setShowAdminModal(false);
-    }
-  };
-
-  const handleLoadDemoData = () => {
-    const db = getDb();
-    const withIds = MARKET_DEALS.map((d, i) => ({ ...d, id: `demo-${i}` }));
-
-    if (db) {
-      const packagesRef = db.collection("packages");
-      const configRef = db.doc("config/site");
-      packagesRef
-        .get()
-        .then((snap) => {
-          const batch = db.batch();
-          snap.docs.forEach((d) => batch.delete(d.ref));
-          return batch.commit();
-        })
-        .then(() => {
-          const batch = db.batch();
-          MARKET_DEALS.forEach((d) => {
-            const { id, ...rest } = { ...d };
-            batch.set(packagesRef.doc(), rest);
-          });
-          batch.set(configRef, {
-            ...DEFAULT_CONFIG,
-            promoMessage: { title: promoMessage.title, subtitle: promoMessage.subtitle, active: true },
-          }, { merge: true });
-          return batch.commit();
-        })
-        .then(() => packagesRef.get())
-        .then((snap) => {
-          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.price || 0) - (b.price || 0));
-          setPackages(list);
-          showMessage("הנתונים נשמרו בענן ונטענו בהצלחה!", "success");
-          setShowAdminModal(false);
-        })
-        .catch((err) => {
-          console.error(err);
-          showMessage("שגיאה בשמירה בענן", "error");
-        });
-    } else {
-      setPackages(withIds);
-      showMessage("הנתונים נטענו בהצלחה!", "success");
-      setShowAdminModal(false);
-    }
-  };
-
-  const handleDeletePackageConfirmed = () => {
-    if (!packageToDelete) return;
-    const db = getDb();
-    if (db && packageToDelete.id && !packageToDelete.id.startsWith("demo-")) {
-      db.collection("packages")
-        .doc(packageToDelete.id)
-        .delete()
-        .then(() => {
-          setPackages((prev) => prev.filter((p) => p.id !== packageToDelete.id));
-          setPackageToDelete(null);
-          showMessage("החבילה נמחקה", "success");
-        })
-        .catch((err) => {
-          console.error(err);
-          showMessage("שגיאה במחיקה בענן", "error");
-        });
-    } else {
-      setPackages((prev) => prev.filter((p) => p.id !== packageToDelete.id));
-      setPackageToDelete(null);
-      showMessage("החבילה נמחקה", "success");
-    }
-  };
-
-  // --- מוצרים – שמירה ב-Firestore בלבד (תמונות = קישורים, בלי Storage = בלי עלות) ---
-  const handleSaveProduct = async (product, _newImageFiles) => {
-    const db = getDb();
-    const maxOrder = products.reduce((m, p) => Math.max(m, p.order ?? 0), 0);
-    const payload = {
-      name: product.name,
-      price: product.price ?? null,
-      description: product.description || "",
-      tags: product.tags || [],
-      images: product.images || [],
-      order: product.order != null ? product.order : maxOrder + 1,
-      badge: product.badge || "",
-    };
-
-    if (db) {
-      try {
-        let productId = product.id && !String(product.id).startsWith("prod-") ? product.id : null;
-        if (productId) {
-          await db.collection("products").doc(productId).update(payload);
-        } else {
-          const ref = await db.collection("products").add(payload);
-          productId = ref.id;
-        }
-        setProducts((prev) => {
-          const next = { ...payload, id: productId };
-          if (prev.some((p) => p.id === productId)) return prev.map((p) => (p.id === productId ? next : p));
-          return [...prev, next];
-        });
-        setEditingProduct(null);
-        setShowProductModal(false);
-        showMessage("המוצר נשמר בהצלחה", "success");
-      } catch (err) {
-        console.error(err);
-        showMessage("שגיאה בשמירת המוצר", "error");
-      }
-    } else {
-      setProducts((prev) => {
-        const id = product.id && prev.some((p) => p.id === product.id) ? product.id : `prod-${Date.now()}-${prev.length}`;
-        const next = { ...payload, id };
-        if (prev.some((p) => p.id === id)) return prev.map((p) => (p.id === id ? next : p));
-        return [...prev, next];
-      });
-      setEditingProduct(null);
-      setShowProductModal(false);
-      showMessage("המוצר נוסף", "success");
-    }
-  };
-
-  const handleDeleteProductConfirmed = () => {
-    if (!productToDelete) return;
-    const db = getDb();
-    if (db && productToDelete.id && !String(productToDelete.id).startsWith("prod-")) {
-      db.collection("products")
-        .doc(productToDelete.id)
-        .delete()
-        .then(() => {
-          setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-          setProductToDelete(null);
-          showMessage("המוצר נמחק", "success");
-        })
-        .catch((err) => {
-          console.error(err);
-          showMessage("שגיאה במחיקה", "error");
-        });
-    } else {
-      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-      setProductToDelete(null);
-      showMessage("המוצר נמחק", "success");
-    }
-  };
-
-  const handleProductsReorder = (reordered) => {
-    const withOrder = reordered.map((p, i) => ({ ...p, order: i }));
-    setProducts(withOrder);
-    const db = getDb();
-    if (db) {
-      Promise.all(
-        withOrder
-          .filter((p) => p.id && !String(p.id).startsWith("prod-"))
-          .map((p, i) => db.collection("products").doc(p.id).update({ order: i }))
-      )
-        .then(() => showMessage("סדר המוצרים נשמר", "success"))
-        .catch((err) => {
-          console.error(err);
-          showMessage("שגיאה בשמירת הסדר", "error");
-        });
-    }
-  };
-
-  const handleUpdatePromo = (title, subtitle) => {
-    const next = { ...promoMessage, title, subtitle };
-    setPromoMessage(next);
-    const db = getDb();
-    if (db) {
-      db.doc("config/site")
-        .set({ promoMessage: next }, { merge: true })
-        .then(() => showMessage("המבצע נשמר בענן", "success"))
-        .catch((err) => {
-          console.error(err);
-          showMessage("שגיאה בשמירה לענן", "error");
-        });
-    } else {
-      showMessage("המבצע עודכן", "success");
-    }
-  };
-
-  const handleUpdateConfig = (newConfig) => {
-    setSiteConfig(newConfig);
-    setShowSettingsModal(false);
-    const db = getDb();
-    if (db) {
-      const toSave = { ...newConfig };
-      db.doc("config/site")
-        .set(toSave, { merge: true })
-        .then(() => showMessage("הגדרות האתר נשמרו בענן", "success"))
-        .catch((err) => {
-          console.error(err);
-          showMessage("שגיאה בשמירה לענן", "error");
-        });
-    } else {
-      showMessage("הגדרות האתר עודכנו", "success");
-    }
-  };
 
   const handleWhatsAppClick = (pkg) => {
     const phone = siteConfig.whatsapp || "0527151000";
@@ -977,7 +653,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     () => [...products].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
     [products]
   );
-  const displayedProducts = isAdmin ? sortedProducts : sortedProducts.slice(0, productsVisibleCount);
+  const displayedProducts = sortedProducts.slice(0, productsVisibleCount);
   const hasMoreProducts = !isAdmin && sortedProducts.length > productsVisibleCount;
 
   // איפוס "הצג עוד" כשמשנים טאב או חיפוש
@@ -1046,40 +722,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                 סניפים
               </a>
 
-              {isAdmin && (
-                <button
-                  onClick={() => setShowSettingsModal(true)}
-                  className="p-2 text-white/80 hover:text-orange-400 hover:bg-white/10 rounded-full transition"
-                  title="הגדרות אתר"
-                >
-                  <Settings size={20} />
-                </button>
-              )}
-
-              <button
-                onClick={() => {
-                  if (isAdmin) {
-                    const auth = getAuth();
-                    if (auth) auth.signOut();
-                    setIsAdmin(false);
-                  } else setShowLoginModal(true);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
-                  isAdmin
-                    ? "bg-red-500/20 text-red-200 hover:bg-red-500/30"
-                    : "bg-white/10 text-white hover:bg-white/20"
-                }`}
-              >
-                {isAdmin ? (
-                  <>
-                    <LogOut size={16} /> יציאה
-                  </>
-                ) : (
-                  <>
-                    <Lock size={16} /> ניהול
-                  </>
-                )}
-              </button>
             </div>
 
             {/* Mobile menu button */}
@@ -1103,20 +745,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
               <a href="#products" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>מוצרים</a>
               <a href="#services" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>שירותים</a>
               <a href="#locations" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>סניפים</a>
-              {isAdmin && (
-                <button onClick={() => { setShowSettingsModal(true); setMobileMenuOpen(false); }} className="py-3 text-right text-white/80 border-b border-white/10">
-                  הגדרות אתר
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  if (isAdmin) { const auth = getAuth(); if (auth) auth.signOut(); setIsAdmin(false); } else setShowLoginModal(true);
-                  setMobileMenuOpen(false);
-                }}
-                className="mt-2 py-2 text-orange-400 font-bold text-right"
-              >
-                {isAdmin ? "יציאה" : "כניסת מנהל"}
-              </button>
             </div>
           </div>
         )}
@@ -1160,12 +788,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         )}
 
         <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8 relative z-20">
-          {isAdmin ? (
-            <div className="text-center mb-6">
-              <PromoEditor promoMessage={promoMessage} onSave={handleUpdatePromo} />
-            </div>
-          ) : null}
-
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 py-1.5 px-4 rounded-full bg-white/10 border border-orange-400/50 text-sm font-semibold text-sky-100 mb-4">
               <span className="text-orange-400">◆</span> ביפון תקשורת סלולרית – בית שמש וביתר
@@ -1237,17 +859,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             <h2 className="text-3xl font-bold text-slate-800">
               מכשירים ומוצרים בחנות
             </h2>
-            {isAdmin && (
-              <button
-                onClick={() => {
-                  setEditingProduct(null);
-                  setShowProductModal(true);
-                }}
-                className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-orange-400 transition transform hover:scale-105"
-              >
-                <Plus size={20} /> הוסף מוצר
-              </button>
-            )}
           </div>
 
           {products.length === 0 ? (
@@ -1255,72 +866,21 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
               <p className="text-gray-500 text-lg">
                 עדיין לא הוזנו מוצרים להצגה.
               </p>
-              {isAdmin && (
-                <p
-                  className="text-blue-500 cursor-pointer mt-2"
-                  onClick={() => {
-                    setEditingProduct(null);
-                    setShowProductModal(true);
-                  }}
-                >
-                  לחץ כאן להוספת מוצר ראשון
-                </p>
-              )}
             </div>
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-                {displayedProducts.map((product, index) => {
-                  const card = (
+                {displayedProducts.map((product) => (
+                  <div key={product.id} id={`product-${product.id || ""}`}>
                     <ProductCard
-                      key={product.id}
                       product={product}
-                      isAdmin={isAdmin}
-                      onEdit={() => {
-                        setEditingProduct(product);
-                        setShowProductModal(true);
-                      }}
-                      onDelete={() => setProductToDelete(product)}
                       onWhatsApp={handleWhatsAppClick}
                       onShare={handleShareProduct}
                       onLightboxOpen={() => setProductLightboxOpen(true)}
                       onLightboxClose={() => setProductLightboxOpen(false)}
                     />
-                  );
-                  if (!isAdmin) return <div key={product.id} id={`product-${product.id || ""}`}>{card}</div>;
-                  return (
-                    <div
-                      key={product.id}
-                      id={`product-${product.id || ""}`}
-                      draggable
-                      onDragStart={() => setDraggedProductId(product.id)}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.classList.add("ring-2", "ring-blue-400");
-                      }}
-                      onDragLeave={(e) => {
-                        e.currentTarget.classList.remove("ring-2", "ring-blue-400");
-                      }}
-                      onDragEnd={() => setDraggedProductId(null)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.classList.remove("ring-2", "ring-blue-400");
-                        if (draggedProductId == null || draggedProductId === product.id) return;
-                        const fromIdx = sortedProducts.findIndex((p) => p.id === draggedProductId);
-                        const toIdx = sortedProducts.findIndex((p) => p.id === product.id);
-                        if (fromIdx === -1 || toIdx === -1) return;
-                        const next = [...sortedProducts];
-                        const [removed] = next.splice(fromIdx, 1);
-                        next.splice(toIdx, 0, removed);
-                        handleProductsReorder(next);
-                        setDraggedProductId(null);
-                      }}
-                      className={`cursor-grab active:cursor-grabbing h-full min-h-0 ${draggedProductId === product.id ? "opacity-60" : ""}`}
-                    >
-                      {card}
-                    </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
               {hasMoreProducts && (
                 <div className="text-center mt-8">
@@ -1332,11 +892,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                     הצג עוד מוצרים
                   </button>
                 </div>
-              )}
-              {isAdmin && sortedProducts.length > 1 && (
-                <p className="text-sm text-gray-500 mt-4 text-center">
-                  גרור כרטיס כדי לשנות סדר הצגת המוצרים
-                </p>
               )}
             </>
           )}
@@ -1413,17 +968,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
             </button>
           </div>
 
-          {isAdmin && (
-            <div className="mb-8 text-center">
-              <button
-                onClick={() => setShowAdminModal(true)}
-                className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition transform hover:scale-105"
-              >
-                <Plus size={20} /> ניהול חבילות
-              </button>
-            </div>
-          )}
-
           {loading ? (
             <div className="text-center py-12 text-gray-500">
               טוען חבילות...
@@ -1487,13 +1031,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                         )}
                       </div>
                     </div>
-
-                    {isAdmin && (
-                      <div className="absolute top-4 left-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                        <button onClick={() => { setEditingPackage(pkg); setShowAdminModal(true); }} className="p-2 bg-blue-100 text-blue-600 rounded-full shadow" title="עריכת חבילה"><Edit2 size={18} /></button>
-                        <button onClick={() => setPackageToDelete(pkg)} className="p-2 bg-red-100 text-red-600 rounded-full shadow" title="מחיקת חבילה"><Trash2 size={18} /></button>
-                      </div>
-                    )}
 
                     {/* גוף הכרטיס – יתרונות + כפתור */}
                     <div className="p-6 flex-grow flex flex-col bg-gradient-to-b from-white to-slate-50/60">
@@ -1597,7 +1134,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
               <p className="mt-3 text-sky-200/80 text-xs leading-relaxed">
                 המחירים והמבצעים באחריות הספקים ונתונים לשינוי בהתאם לתקנון החברות. ט.ל.ח
               </p>
-              <p className="mt-3">© כל הזכויות שמורות לבי-פון תקשורת 2026</p>
+              <p className="mt-3">© כל הזכויות שמורות לבי-פון תקשורת <a href="/admin.html" className="no-underline hover:no-underline hover:text-inherit cursor-pointer text-inherit">2026</a></p>
             </div>
           </div>
         </div>
@@ -1664,66 +1201,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         </div>
       )}
 
-      {/* Modals */}
-      {showAdminModal && (
-        <AdminModal
-          onClose={() => {
-            setShowAdminModal(false);
-            setEditingPackage(null);
-          }}
-          initialData={editingPackage}
-          onSubmit={handleSavePackage}
-          onLoadDemo={handleLoadDemoData}
-        />
-      )}
-
-      {showLoginModal && (
-        <LoginModal
-          onClose={() => setShowLoginModal(false)}
-          onLogin={handleLogin}
-          onLoginGoogle={handleLoginGoogle}
-          useFirebase={isFirebaseActive()}
-        />
-      )}
-
-      {showSettingsModal && (
-        <SettingsModal
-          config={siteConfig}
-          onClose={() => setShowSettingsModal(false)}
-          onSave={handleUpdateConfig}
-          showMessage={showMessage}
-        />
-      )}
-
-      {showProductModal && (
-        <ProductModal
-          onClose={() => {
-            setShowProductModal(false);
-            setEditingProduct(null);
-          }}
-          initialData={editingProduct}
-          onSubmit={handleSaveProduct}
-        />
-      )}
-
-      {packageToDelete && (
-        <ConfirmDeleteModal
-          title="מחיקת חבילה"
-          message={`האם אתה בטוח שברצונך למחוק את החבילה ${packageToDelete.provider}?`}
-          onCancel={() => setPackageToDelete(null)}
-          onConfirm={handleDeletePackageConfirmed}
-        />
-      )}
-
-      {productToDelete && (
-        <ConfirmDeleteModal
-          title="מחיקת מוצר"
-          message={`האם אתה בטוח שברצונך למחוק את המוצר ${productToDelete.name}?`}
-          onCancel={() => setProductToDelete(null)}
-          onConfirm={handleDeleteProductConfirmed}
-        />
-      )}
-
       {toast && (
         <Toast
           message={toast.message}
@@ -1735,7 +1212,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       {typeof document !== "undefined" && document.body && window.ReactDOM && window.ReactDOM.createPortal(
         <>
           {/* כפתור ביביפ – מוסתר כשהצ'אט פתוח או כשמוצר/לייטאבוקס פתוח */}
-          {!showAiAdvisor && !showProductModal && !productLightboxOpen && (
+          {!showAiAdvisor && !productLightboxOpen && (
             <div style={{ position: "fixed", bottom: "1.5rem", left: "1.5rem", zIndex: 99999, isolation: "isolate" }}>
               <button
                 type="button"
@@ -1779,37 +1256,6 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
 }
 
 // --- קומפוננטות משנה ---
-
-function PromoEditor({ promoMessage, onSave }) {
-  const [title, setTitle] = useState(promoMessage.title);
-  const [subtitle, setSubtitle] = useState(promoMessage.subtitle);
-
-  return (
-    <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm border border-white/20 max-w-lg mx-auto mb-6">
-      <h3 className="text-sm font-bold mb-2 opacity-80 flex items-center justify-center gap-2">
-        <Edit2 size={14} /> עריכת כותרת ראשית
-      </h3>
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="block w-full mb-2 px-3 py-2 rounded text-slate-900"
-        placeholder="כותרת מבצע"
-      />
-      <input
-        value={subtitle}
-        onChange={(e) => setSubtitle(e.target.value)}
-        className="block w-full mb-2 px-3 py-2 rounded text-slate-900"
-        placeholder="תת כותרת"
-      />
-      <button
-        onClick={() => onSave(title, subtitle)}
-        className="bg-green-500 hover:bg-green-600 text-white w-full py-2 rounded font-bold"
-      >
-        שמור שינויים
-      </button>
-    </div>
-  );
-}
 
 function getProviderStripeClass(provider, is5G) {
   const p = (provider && typeof provider === "string" ? provider.toLowerCase() : "") || "";
@@ -1981,481 +1427,6 @@ function LocationCard({ city, address, hours, phone }) {
   );
 }
 
-function LoginModal({ onClose, onLogin, onLoginGoogle, useFirebase }) {
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold">כניסת מנהל מערכת</h3>
-          <button type="button" onClick={onClose}>
-            <X className="text-gray-400 hover:text-gray-600" />
-          </button>
-        </div>
-        {useFirebase ? (
-          <p className="text-sm text-gray-500 mb-4">התחבר עם אימייל וסיסמה או עם גוגל.</p>
-        ) : (
-          <p className="text-sm text-gray-500 mb-4">למצב מקומי: הסיסמה היא 1234</p>
-        )}
-        {useFirebase && (
-          <>
-            <button
-              type="button"
-              onClick={onLoginGoogle}
-              className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-50 transition mb-4"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              התחבר עם גוגל
-            </button>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="flex-1 border-t border-gray-200" />
-              <span className="text-sm text-gray-400">או עם אימייל</span>
-              <span className="flex-1 border-t border-gray-200" />
-            </div>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 mb-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              placeholder="אימייל"
-              dir="ltr"
-            />
-          </>
-        )}
-        <input
-          type="password"
-          value={pass}
-          onChange={(e) => setPass(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-4 py-3 mb-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          placeholder="סיסמה"
-          autoFocus={!useFirebase}
-        />
-        <button
-          type="button"
-          onClick={() => (useFirebase ? onLogin(email, pass) : onLogin("", pass))}
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition"
-        >
-          כניסה
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SettingsModal({ config, onClose, onSave, showMessage }) {
-  const [formData, setFormData] = useState(() => ({
-    ...config,
-    heroBanners: Array.isArray(config.heroBanners) ? [...config.heroBanners] : [],
-    heroDefaultBannerIndex: typeof config.heroDefaultBannerIndex === "number" ? config.heroDefaultBannerIndex : -1,
-    heroBannerDurationSeconds: typeof config.heroBannerDurationSeconds === "number" ? config.heroBannerDurationSeconds : 5,
-  }));
-  const [bannerUploading, setBannerUploading] = useState(false);
-  const [logoUploading, setLogoUploading] = useState(false);
-  const [botLogoUploading, setBotLogoUploading] = useState(false);
-
-  const handleLogoUpload = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    if (!IMGBB_API_KEY) {
-      showMessage?.("הוסף מפתח ImgBB ב־index.html להעלאת תמונות", "error");
-      return;
-    }
-    setLogoUploading(true);
-    const url = await uploadImageToImgBB(files[0]);
-    setLogoUploading(false);
-    if (url) {
-      setFormData((prev) => ({ ...prev, logoUrl: url }));
-      showMessage?.("הלוגו הועלה בהצלחה", "success");
-    } else {
-      showMessage?.("ההעלאה נכשלה – נסה שוב", "error");
-    }
-    e.target.value = "";
-  };
-
-  const handleBotLogoUpload = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    if (!IMGBB_API_KEY) {
-      showMessage?.("הוסף מפתח ImgBB ב־index.html להעלאת תמונות", "error");
-      return;
-    }
-    setBotLogoUploading(true);
-    const url = await uploadImageToImgBB(files[0]);
-    setBotLogoUploading(false);
-    if (url) {
-      setFormData((prev) => ({ ...prev, botLogoUrl: url }));
-      showMessage?.("לוגו ביביפ הועלה בהצלחה", "success");
-    } else {
-      showMessage?.("ההעלאה נכשלה – נסה שוב", "error");
-    }
-    e.target.value = "";
-  };
-
-  const handleBannerUpload = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    if (!IMGBB_API_KEY) {
-      showMessage?.("הוסף מפתח ImgBB ב־index.html להעלאת תמונות", "error");
-      return;
-    }
-    setBannerUploading(true);
-    const urls = [];
-    for (let i = 0; i < files.length; i++) {
-      const url = await uploadImageToImgBB(files[i]);
-      if (url) urls.push(url);
-    }
-    setBannerUploading(false);
-    if (urls.length > 0) {
-      setFormData((prev) => ({ ...prev, heroBanners: [...(prev.heroBanners || []), ...urls] }));
-      showMessage?.(`הועלו ${urls.length} תמונות`, "success");
-    } else if (files.length > 0) {
-      showMessage?.("ההעלאה נכשלה – נסה שוב", "error");
-    }
-    e.target.value = "";
-  };
-
-  const handleBannerDelete = (idx) => {
-    setFormData((prev) => {
-      const next = [...(prev.heroBanners || [])];
-      next.splice(idx, 1);
-      let defaultIdx = prev.heroDefaultBannerIndex ?? -1;
-      if (defaultIdx === idx) defaultIdx = -1;
-      else if (defaultIdx > idx) defaultIdx--;
-      return { ...prev, heroBanners: next, heroDefaultBannerIndex: defaultIdx };
-    });
-  };
-
-  const handleLocationChange = (index, field, value) => {
-    const newLocs = [...formData.locations];
-    newLocs[index] = { ...newLocs[index], [field]: value };
-    setFormData({ ...formData, locations: newLocs });
-  };
-
-  const handleServiceChange = (index, field, value) => {
-    const newServices = [...formData.services];
-    newServices[index] = { ...newServices[index], [field]: value };
-    setFormData({ ...formData, services: newServices });
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl p-6 md:p-8 max-w-2xl w-full shadow-2xl my-8 max-h-[90vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-6 flex-shrink-0">
-          <h3 className="text-2xl font-bold text-slate-800">הגדרות אתר</h3>
-          <button onClick={onClose}>
-            <X className="text-gray-400 hover:text-gray-600" />
-          </button>
-        </div>
-
-        <div className="space-y-6 overflow-y-auto flex-1 min-h-0 pr-1 -mr-1">
-          <h4 className="font-bold text-lg text-blue-800 border-b pb-2">
-            עיצוב כללי
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold mb-2">
-                לוגו האתר
-              </label>
-              <p className="text-sm text-gray-600 mb-2">
-                העלה תמונה או השתמש בלוגו ברירת מחדל
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-200 transition text-sm font-medium">
-                  <ImageIcon size={16} />
-                  {logoUploading ? "מעלה..." : "בחר קובץ / העלה לוגו"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLogoUpload}
-                    disabled={logoUploading}
-                  />
-                </label>
-                {formData.logoUrl && (
-                  <>
-                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                      <img src={formData.logoUrl} alt="לוגו נוכחי" className="h-10 w-auto object-contain" />
-                      <button
-                        type="button"
-                        onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "" }))}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                        title="מחק לוגו"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="flex gap-2 mt-2">
-                <input
-                  type="text"
-                  value={formData.logoUrl || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, logoUrl: e.target.value })
-                  }
-                  placeholder="או הזן קישור ישיר"
-                  className="flex-1 border rounded-lg p-2 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "./logos/logo-bphone.png" }))}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 whitespace-nowrap"
-                >
-                  ברירת מחדל
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-bold mb-2">
-                לוגו ביביפ (אייקון הבוט)
-              </label>
-              <p className="text-sm text-gray-600 mb-2">
-                העלה תמונה עם רקע שקוף (PNG)
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-200 transition text-sm font-medium">
-                  <ImageIcon size={16} />
-                  {botLogoUploading ? "מעלה..." : "בחר קובץ / העלה לוגו ביביפ"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleBotLogoUpload}
-                    disabled={botLogoUploading}
-                  />
-                </label>
-                {formData.botLogoUrl && (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                    <img src={formData.botLogoUrl} alt="לוגו ביביפ" className="h-12 w-12 object-contain" />
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, botLogoUrl: "" }))}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                      title="מחק לוגו"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <input
-                type="text"
-                value={formData.botLogoUrl || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, botLogoUrl: e.target.value })
-                }
-                placeholder="או הזן קישור ישיר"
-                className="w-full border rounded-lg p-2 mt-2 text-sm"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold mb-2">
-                באנר ראשי
-              </label>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">ברירת מחדל</label>
-                  <select
-                    value={formData.heroDefaultBannerIndex ?? -1}
-                    onChange={(e) =>
-                      setFormData({ ...formData, heroDefaultBannerIndex: parseInt(e.target.value, 10) })
-                    }
-                    className="w-full border rounded-lg p-2"
-                  >
-                    <option value={-1}>ללא באנר (רקע כחול רגיל)</option>
-                    {(formData.heroBanners || []).map((_, idx) => (
-                      <option key={idx} value={idx}>באנר {idx + 1}</option>
-                    ))}
-                  </select>
-                </div>
-                {(formData.heroBanners || []).length > 0 && (
-                  <>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">משך כל באנר (שניות)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={60}
-                        value={formData.heroBannerDurationSeconds ?? 5}
-                        onChange={(e) =>
-                          setFormData({ ...formData, heroBannerDurationSeconds: Math.max(1, Math.min(60, parseInt(e.target.value, 10) || 5)) })
-                        }
-                        className="w-full border rounded-lg p-2"
-                      />
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!!formData.heroBannerRotation}
-                        onChange={(e) =>
-                          setFormData({ ...formData, heroBannerRotation: e.target.checked })
-                        }
-                      />
-                      <span className="text-sm font-medium">החלפת באנרים אוטומטית</span>
-                    </label>
-                  </>
-                )}
-              </div>
-              <div className="mt-3 space-y-2">
-                <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-200 transition text-sm font-medium">
-                  <ImageIcon size={16} />
-                  {bannerUploading ? "מעלה..." : "העלה באנרים"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handleBannerUpload}
-                    disabled={bannerUploading}
-                  />
-                </label>
-                {(formData.heroBanners || []).length > 0 && (
-                  <div className="space-y-2 border rounded-lg p-3 bg-gray-50">
-                    {(formData.heroBanners || []).map((url, idx) => (
-                      <div key={url} className="flex items-center gap-3 p-2 bg-white rounded">
-                        <img src={url} alt={`באנר ${idx + 1}`} className="h-12 w-24 object-cover rounded flex-shrink-0" />
-                        <span className="text-sm text-gray-600 flex-grow">באנר {idx + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleBannerDelete(idx)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                          title="מחק באנר"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-sm font-bold mb-1">
-              מספר וואטסאפ ללידים
-            </label>
-            <input
-              type="text"
-              value={formData.whatsapp}
-              onChange={(e) =>
-                setFormData({ ...formData, whatsapp: e.target.value })
-              }
-              className="w-full border rounded-lg p-2"
-            />
-          </div>
-
-          <h4 className="font-bold text-lg text-blue-800 border-b pb-2 mt-8">
-            סניפים
-          </h4>
-          {formData.locations.map((loc, idx) => (
-            <div key={idx} className="bg-gray-50 p-4 rounded-lg space-y-3">
-              <h5 className="font-bold text-blue-600">סניף {loc.city}</h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    כתובת
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border rounded p-2 text-sm"
-                    value={loc.address}
-                    onChange={(e) =>
-                      handleLocationChange(idx, "address", e.target.value)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    טלפון
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border rounded p-2 text-sm"
-                    value={loc.phone}
-                    onChange={(e) =>
-                      handleLocationChange(idx, "phone", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="col-span-full">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    שעות פתיחה
-                  </label>
-                  <textarea
-                    className="w-full border rounded p-2 text-sm min-h-[60px]"
-                    value={loc.hours}
-                    onChange={(e) =>
-                      handleLocationChange(idx, "hours", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-
-          <h4 className="font-bold text-lg text-blue-800 border-b pb-2 mt-8">
-            שירותים
-          </h4>
-          <div className="grid gap-4">
-            {formData.services.map((service, idx) => (
-              <div
-                key={idx}
-                className="bg-gray-50 p-3 rounded flex flex-col md:flex-row gap-3 items-start md:items-center"
-              >
-                <div className="flex-grow w-full grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <input
-                    className="border rounded p-2 text-sm"
-                    placeholder="כותרת"
-                    value={service.title}
-                    onChange={(e) =>
-                      handleServiceChange(idx, "title", e.target.value)
-                    }
-                  />
-                  <input
-                    className="border rounded p-2 text-sm"
-                    placeholder="תיאור"
-                    value={service.desc}
-                    onChange={(e) =>
-                      handleServiceChange(idx, "desc", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={() => onSave(formData)}
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 mt-6"
-        >
-          שמור שינויים
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function ProductImageLightbox({ product, images, startIndex, onClose }) {
   const [index, setIndex] = useState(startIndex);
   const goNext = () => setIndex((i) => (i + 1) % images.length);
@@ -2542,7 +1513,7 @@ function ProductImageLightbox({ product, images, startIndex, onClose }) {
   );
 }
 
-function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare, onLightboxOpen, onLightboxClose }) {
+function ProductCard({ product, onWhatsApp, onShare, onLightboxOpen, onLightboxClose }) {
   const images = (product.images && product.images.length > 0) ? product.images : (product.imageUrl ? [product.imageUrl] : []);
   const mainImage = images[0];
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -2589,24 +1560,6 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare, 
         <span className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-lg bg-orange-500 text-white text-xs font-bold shadow">
           {product.badge}
         </span>
-      )}
-      {isAdmin && (
-        <div className="absolute top-2 left-2 flex gap-2 opacity-0 group-hover:opacity-100 transition z-10">
-          <button
-            onClick={onEdit}
-            className="p-2 bg-blue-100 text-blue-700 rounded-full"
-            title="עריכת מוצר"
-          >
-            <Edit2 size={18} />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-2 bg-red-100 text-red-700 rounded-full"
-            title="מחיקת מוצר"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
       )}
       <div className="p-4 flex-grow flex flex-col min-h-0">
         <h3 className="text-lg font-bold text-slate-900 mb-1.5 leading-tight">
@@ -2686,590 +1639,7 @@ function ProductCard({ product, isAdmin, onEdit, onDelete, onWhatsApp, onShare, 
   );
 }
 
-function ProductModal({ onClose, onSubmit, initialData }) {
-  const [formData, setFormData] = useState(() => {
-    if (initialData) {
-      return {
-        id: initialData.id,
-        name: initialData.name || "",
-        price:
-          typeof initialData.price === "number"
-            ? String(initialData.price)
-            : initialData.price || "",
-        imagesText: (initialData.images && initialData.images.join("\n")) || initialData.imageUrl || "",
-        description: initialData.description || "",
-        tagsText: initialData.tags ? initialData.tags.join(", ") : "",
-        badge: initialData.badge || "",
-      };
-    }
-    return {
-      id: undefined,
-      name: "",
-      price: "",
-      imagesText: "",
-      description: "",
-      tagsText: "",
-      badge: "",
-    };
-  });
-  const [newFiles, setNewFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState("");
-
-  const isEdit = Boolean(initialData && initialData.id);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const tags =
-      formData.tagsText && formData.tagsText.trim().length > 0
-        ? formData.tagsText.split(",").map((t) => t.trim())
-        : [];
-    let images =
-      formData.imagesText && formData.imagesText.trim().length > 0
-        ? formData.imagesText
-            .split("\n")
-            .map((l) => l.trim())
-            .filter(Boolean)
-        : [];
-
-    if (newFiles.length > 0 && IMGBB_API_KEY) {
-      setUploading(true);
-      try {
-        const total = newFiles.length;
-        for (let i = 0; i < newFiles.length; i++) {
-          setUploadStatus(`מעלה תמונה ${i + 1} מתוך ${total}...`);
-          const url = await uploadImageToImgBB(newFiles[i]);
-          if (url) images.push(url);
-        }
-        setUploadStatus("");
-      } catch (err) {
-        console.error("ImgBB upload:", err);
-        setUploadStatus("");
-      }
-      setUploading(false);
-    } else if (newFiles.length > 0 && !IMGBB_API_KEY) {
-      // יש קבצים אבל אין מפתח – לא מעלים, רק קישורים מהתיבה
-    }
-
-    onSubmit(
-      {
-        id: formData.id,
-        name: formData.name,
-        price: formData.price ? Number(formData.price) : null,
-        images,
-        description: formData.description,
-        tags,
-        badge: (formData.badge || "").trim(),
-      },
-      null
-    );
-  };
-
-  const removeNewFile = (idx) => {
-    setNewFiles((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-2xl my-8"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold text-slate-800">
-            {isEdit ? "עריכת מוצר" : "הוספת מוצר חדש"}
-          </h3>
-          <button type="button" onClick={onClose}>
-            <X className="text-gray-400 hover:text-gray-600" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              שם המוצר / המכשיר
-            </label>
-            <input
-              required
-              type="text"
-              className="w-full border rounded-lg p-2"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              מחיר (₪)
-            </label>
-            <input
-              type="number"
-              className="w-full border rounded-lg p-2"
-              value={formData.price}
-              onChange={(e) =>
-                setFormData({ ...formData, price: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              תגית מבצע (אופציונלי)
-            </label>
-            <input
-              type="text"
-              className="w-full border rounded-lg p-2 text-sm"
-              placeholder="מבצע חם! / חדש בסניפים / הגיע חדש"
-              value={formData.badge || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, badge: e.target.value })
-              }
-            />
-            <p className="text-xs text-gray-500 mt-0.5">יופיע על כרטיס המוצר בפינה (כמו בחבילות).</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              תמונות המוצר
-            </label>
-            <p className="text-xs text-gray-500 mb-2">
-              העלאה ישירה (חינם דרך ImgBB): בחר קבצים. או הדבק קישורים בשורות למטה. אם ההעלאה לא מתחילה – נסה לבחור שוב או להקטין את גודל התמונה.
-            </p>
-            {newFiles.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {Array.from(newFiles).map((file, idx) => (
-                  <div key={idx} className="relative">
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt=""
-                      className="w-16 h-16 object-cover rounded border"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeNewFile(idx)}
-                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <input
-              key={newFiles.length}
-              type="file"
-              accept="image/*"
-              multiple
-              className="w-full text-sm text-gray-600 file:mr-2 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 mb-2"
-              onChange={(e) => {
-                const files = e.target.files;
-                if (files && files.length > 0) setNewFiles((prev) => [...prev, ...Array.from(files)]);
-                e.target.value = "";
-              }}
-            />
-            <label className="block text-xs font-medium text-gray-600 mt-2 mb-1">קישורי תמונות (אופציונלי, שורה לכל קישור)</label>
-            <textarea
-              className="w-full border rounded-lg p-2 text-sm min-h-[60px]"
-              placeholder="https://...\nhttps://..."
-              value={formData.imagesText}
-              onChange={(e) =>
-                setFormData({ ...formData, imagesText: e.target.value })
-              }
-            />
-            {!IMGBB_API_KEY && (
-              <p className="text-xs text-amber-700 mt-1">
-                להעלאה ישירה: הוסף מפתח חינמי מ־<a href="https://api.imgbb.com/" target="_blank" rel="noopener noreferrer" className="underline">api.imgbb.com</a> ב־index.html (IMGBB_API_KEY).
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              תגיות (מופרדות בפסיק)
-            </label>
-            <input
-              type="text"
-              className="w-full border rounded-lg p-2 text-sm"
-              placeholder="לדוג': כשר, דור 5, זיכרון 128GB"
-              value={formData.tagsText}
-              onChange={(e) =>
-                setFormData({ ...formData, tagsText: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              תיאור המוצר
-            </label>
-            <textarea
-              className="w-full border rounded-lg p-2 text-sm min-h-[80px]"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-            />
-          </div>
-
-          {uploadStatus && (
-            <p className="text-sm text-blue-600 mt-2">{uploadStatus}</p>
-          )}
-          <button
-            type="submit"
-            disabled={uploading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 mt-4"
-          >
-            {uploading ? (uploadStatus || "מעלה תמונות...") : isEdit ? "שמור שינויים" : "שמור והוסף לאתר"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmDeleteModal({ title, message, onConfirm, onCancel }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-xl font-bold text-slate-900 mb-3">{title}</h3>
-        <p className="text-sm text-gray-600 mb-6">{message}</p>
-        <div className="flex justify-between gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
-          >
-            ביטול
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium"
-          >
-            כן, מחק
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AdminModal({ onClose, onSubmit, onLoadDemo, initialData }) {
-  const [formData, setFormData] = useState(() => {
-    const base = initialData || {
-      id: undefined,
-      provider: "",
-      price: "",
-      category: "kosher",
-      dataGB: 0,
-      calls: "ללא הגבלה",
-      sms: "unlimited",
-      is5G: false,
-      extras: "",
-      logoUrl: "",
-      providerName: "",
-      priceDetail: "",
-      isHot: false,
-      badge: "",
-      afterPrice: "",
-      features: [],
-    };
-    if (base.features && Array.isArray(base.features)) base.features = base.features.join("\n");
-    return base;
-  });
-
-  const isEdit = Boolean(initialData && initialData.id);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const featuresRaw = formData.features;
-    const features = typeof featuresRaw === "string"
-      ? featuresRaw.split("\n").map((s) => s.trim()).filter(Boolean)
-      : Array.isArray(featuresRaw) ? featuresRaw : [];
-    onSubmit({
-      ...formData,
-      price: Number(formData.price),
-      dataGB: Number(formData.dataGB),
-      features: features.length ? features : undefined,
-    });
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-t-2xl sm:rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-2xl my-0 sm:my-8 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white py-1 -mt-1 z-10">
-          <h3 className="text-xl sm:text-2xl font-bold text-slate-800">
-            {isEdit ? "עריכת חבילה" : "הוספת חבילה חדשה"}
-          </h3>
-          <button type="button" onClick={onClose}>
-            <X className="text-gray-400 hover:text-gray-600" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                חברה/ספק
-              </label>
-              <input
-                required
-                type="text"
-                className="w-full border rounded-lg p-2"
-                placeholder="לדוג' פרטנר, סלקום"
-                value={formData.provider}
-                onChange={(e) =>
-                  setFormData({ ...formData, provider: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                שם לתצוגה (אופציונלי)
-              </label>
-              <input
-                type="text"
-                className="w-full border rounded-lg p-2"
-                placeholder="סלקום, HOT mobile..."
-                value={formData.providerName ?? ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, providerName: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                מחיר לחודש (₪)
-              </label>
-              <input
-                required
-                type="number"
-                className="w-full border rounded-lg p-2"
-                placeholder="35"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                פירוט מחיר (תת-כותרת)
-              </label>
-              <input
-                type="text"
-                className="w-full border rounded-lg p-2"
-                placeholder="לקו שני ומעלה..."
-                value={formData.priceDetail ?? ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, priceDetail: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-4 items-center">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="w-4 h-4 text-blue-600 rounded"
-                checked={Boolean(formData.isHot)}
-                onChange={(e) =>
-                  setFormData({ ...formData, isHot: e.target.checked })
-                }
-              />
-              <span className="text-sm font-medium text-gray-700">מבצע מומלץ (תג על הכרטיס)</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">תג (אופציונלי):</span>
-              <input
-                type="text"
-                className="border rounded-lg p-1.5 w-40 text-sm"
-                placeholder="מבצע מטורף"
-                value={formData.badge ?? ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, badge: e.target.value })
-                }
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">מחיר המשך:</span>
-              <input
-                type="text"
-                className="border rounded-lg p-1.5 w-36 text-sm"
-                placeholder="מחיר המשך 99 ₪"
-                value={formData.afterPrice ?? ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, afterPrice: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              רשימת יתרונות (שורה אחת לכל פריט)
-            </label>
-            <textarea
-              className="w-full border rounded-lg p-2 text-sm min-h-[80px]"
-              placeholder={"5000 דקות שיחה\nגלישה: 800GB\n500 דקות לחו״ל"}
-              value={Array.isArray(formData.features) ? formData.features.join("\n") : (formData.features ?? "")}
-              onChange={(e) =>
-                setFormData({ ...formData, features: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              קישור ללוגו (אופציונלי)
-            </label>
-            <input
-              type="text"
-              className="w-full border rounded-lg p-2"
-              placeholder="https://..."
-              value={formData.logoUrl}
-              onChange={(e) =>
-                setFormData({ ...formData, logoUrl: e.target.value })
-              }
-            />
-            <select
-              className="mt-2 w-full border rounded-lg p-2 text-sm bg-gray-50"
-              defaultValue=""
-              onChange={(e) => {
-                const preset = PROVIDER_LOGO_PRESETS.find(
-                  (p) => p.key === e.target.value
-                );
-                if (preset) {
-                  setFormData({ ...formData, logoUrl: preset.path });
-                }
-              }}
-            >
-              <option value="">או בחר לוגו מובנה מתיקיית logos</option>
-              {PROVIDER_LOGO_PRESETS.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              שים את קבצי ה־PNG בתיקייה <code>logos</code> ליד <code>index.html</code>.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              קטגוריה
-            </label>
-            <select
-              className="w-full border rounded-lg p-2"
-              value={formData.category}
-              onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value })
-              }
-            >
-              <option value="kosher">קו כשר (שיחות בלבד)</option>
-              <option value="4g">דור 4 (סמארטפון רגיל)</option>
-              <option value="5g">דור 5 (מהירות גבוהה)</option>
-              <option value="internet">אינטרנט ביתי (סיבים)</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                גלישה (GB)
-              </label>
-              <input
-                type="number"
-                className="w-full border rounded-lg p-2"
-                placeholder="0 אם אין"
-                value={formData.dataGB}
-                onChange={(e) =>
-                  setFormData({ ...formData, dataGB: e.target.value })
-                }
-              />
-            </div>
-            <div className="flex items-center mt-6">
-              <input
-                type="checkbox"
-                id="is5g"
-                className="w-5 h-5 text-blue-600 rounded"
-                checked={formData.is5G}
-                onChange={(e) =>
-                  setFormData({ ...formData, is5G: e.target.checked })
-                }
-              />
-              <label
-                htmlFor="is5g"
-                className="mr-2 text-sm font-medium text-gray-700"
-              >
-                תומך 5G
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              דקות שיחה
-            </label>
-            <input
-              type="text"
-              className="w-full border rounded-lg p-2"
-              placeholder="לדוג': 5000 או ללא הגבלה"
-              value={formData.calls}
-              onChange={(e) =>
-                setFormData({ ...formData, calls: e.target.value })
-              }
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              הערות/תוספות
-            </label>
-              <input
-                type="text"
-                className="w-full border rounded-lg p-2"
-                placeholder='לדוג": כולל שיחות לחו"ל'
-                value={formData.extras}
-                onChange={(e) =>
-                  setFormData({ ...formData, extras: e.target.value })
-                }
-              />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 mt-4"
-          >
-            שמור והוסף לאתר
-          </button>
-        </form>
-
-        <div className="mt-6 pt-6 border-t border-gray-100">
-          <p className="text-sm text-gray-500 mb-2">אפשרויות מתקדמות:</p>
-          <button
-            type="button"
-            onClick={onLoadDemo}
-            className="w-full bg-green-50 text-green-700 border border-green-200 py-3 rounded-lg font-bold hover:bg-green-100 flex items-center justify-center gap-2"
-          >
-            <RefreshCw size={18} /> טען נתונים לדוגמה מהשוק (פברואר 2026)
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// --- Admin modals removed: admin UI moved to admin.html ---
 
 // --- הרצת האפליקציה ---
 function mountApp() {

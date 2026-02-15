@@ -1,4 +1,16 @@
-# SPA – כל הנתיבים מגיעים ל־index.html
+# דף ניהול נפרד
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+# דף הניהול – גישה ב־/admin או /admin.html
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+# SPA – שאר הנתיבים מגיעים ל־index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
