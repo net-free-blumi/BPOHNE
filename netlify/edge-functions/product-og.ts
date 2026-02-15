@@ -55,10 +55,11 @@ export default async (request: Request, context: { next: () => Promise<Response>
   }
 
   // בוט – צריך OG tags
+  const defaultOgImage = `${origin}/logos/logo-bphone.png`;
   const saJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
   if (!saJson || !id) {
     return new Response(
-      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>B-Phone ביפון</title><meta property="og:title" content="B-Phone תקשורת סלולרית"><meta http-equiv="refresh" content="0;url=${origin}/"></head><body>מעביר...</body></html>`,
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>B-Phone ביפון</title><meta property="og:title" content="B-Phone תקשורת סלולרית"><meta property="og:image" content="${defaultOgImage}"><meta http-equiv="refresh" content="0;url=${origin}/"></head><body>מעביר...</body></html>`,
       { headers: { "content-type": "text/html; charset=utf-8" } }
     );
   }
@@ -135,7 +136,8 @@ export default async (request: Request, context: { next: () => Promise<Response>
         ? escapeHtml(priceStr)
         : "B-Phone ביפון – תקשורת סלולרית";
     const titleOg = escapeHtml(name);
-    const imageOg = mainImage.startsWith("http") ? mainImage : mainImage ? new URL(mainImage, origin).href : "";
+    let imageOg = mainImage.startsWith("http") ? mainImage : mainImage ? new URL(mainImage, origin).href : "";
+    if (!imageOg) imageOg = `${origin}/logos/logo-bphone.png`;
 
     const html = `<!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -147,7 +149,7 @@ export default async (request: Request, context: { next: () => Promise<Response>
   <meta property="og:description" content="${descOg}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="${origin}/product/${id}">
-  ${imageOg ? `<meta property="og:image" content="${escapeHtml(imageOg)}">` : ""}
+  <meta property="og:image" content="${escapeHtml(imageOg)}">
   <meta property="og:site_name" content="B-Phone ביפון">
   <meta http-equiv="refresh" content="0;url=${origin}/#product-${id}">
 </head>
@@ -163,7 +165,7 @@ export default async (request: Request, context: { next: () => Promise<Response>
   } catch (e) {
     console.error("OG product error:", e);
     return new Response(
-      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>B-Phone ביפון</title><meta http-equiv="refresh" content="0;url=${origin}/"></head><body>מעביר...</body></html>`,
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>B-Phone ביפון</title><meta property="og:title" content="B-Phone תקשורת סלולרית"><meta property="og:image" content="${origin}/logos/logo-bphone.png"><meta http-equiv="refresh" content="0;url=${origin}/"></head><body>מעביר...</body></html>`,
       { headers: { "content-type": "text/html; charset=utf-8" } }
     );
   }

@@ -923,16 +923,28 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     }
   };
 
+  // גלילה למוצר כשנכנסים עם hash #product-xxx – רק אחרי טעינת המוצרים
+  const productHashId = typeof window !== "undefined" && window.location.hash?.startsWith("#product-") ? window.location.hash.slice(1) : null;
   useEffect(() => {
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
-    if (hash && hash.startsWith("#product-")) {
-      const id = hash.slice(1);
-      setTimeout(() => {
-        const el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 300);
+    if (!productHashId || products.length === 0) return;
+    const productId = productHashId.replace(/^product-/, "");
+    const idx = products.findIndex((p) => p.id === productId);
+    if (idx >= 0 && idx >= productsVisibleCount) {
+      setProductsVisibleCount((c) => Math.max(c, idx + 1));
     }
-  }, []);
+  }, [products, productHashId, productsVisibleCount]);
+  useEffect(() => {
+    if (!productHashId) return;
+    const tryScroll = (attempt = 0) => {
+      const el = document.getElementById(productHashId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (attempt < 10) setTimeout(() => tryScroll(attempt + 1), 200);
+    };
+    setTimeout(tryScroll, 300);
+  }, [productHashId, products, productsVisibleCount]);
 
   // --- מיפוי קטגוריה לטקסט לחיפוש ---
   const categoryToLabel = { all: "", kosher: "כשר", "4g": "דור 4", "5g": "דור 5", internet: "אינטרנט ביתי" };
