@@ -300,7 +300,7 @@ function EditableText({ type, editKey, value, as: Tag = "span", className = "", 
   const [draft, setDraft] = useState(value ?? "");
 
   if (!ctx || !ctx.isEditMode) {
-    const display = (value ?? "").trim() || placeholder;
+    const display = (value === undefined || value === null) ? (placeholder || "") : String(value).trim();
     return <Tag className={className}>{display}</Tag>;
   }
 
@@ -971,9 +971,15 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         <section id="featured" className="py-12 sm:py-16 bg-gradient-to-b from-amber-50/80 to-white border-b border-amber-100">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center mb-8">
-              <span className="inline-block px-4 py-1.5 rounded-full bg-amber-200/80 text-amber-900 text-sm font-bold mb-3"><EditableText type="siteTexts" editKey="featuredBadge" value={t.featuredBadge} placeholder="ההמלצות שלנו" /></span>
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] mb-2"><EditableText type="siteTexts" editKey="featuredTitle" value={t.featuredTitle} as="span" placeholder="מבצעים מומלצים" /></h2>
-              <p className="text-slate-600 max-w-xl mx-auto"><EditableText type="siteTexts" editKey="featuredSubtitle" value={t.featuredSubtitle} as="span" placeholder="מוצרים וחבילות שנבחרו במיוחד – במחיר משתלם" /></p>
+              {(((t.featuredBadge ?? "").trim()) !== "" || isEditMode) && (
+                <span className="inline-block px-4 py-1.5 rounded-full bg-amber-200/80 text-amber-900 text-sm font-bold mb-3"><EditableText type="siteTexts" editKey="featuredBadge" value={t.featuredBadge} placeholder="ההמלצות שלנו" /></span>
+              )}
+              {(((t.featuredTitle ?? "").trim()) !== "" || isEditMode) && (
+                <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] mb-2"><EditableText type="siteTexts" editKey="featuredTitle" value={t.featuredTitle} as="span" placeholder="מבצעים מומלצים" /></h2>
+              )}
+              {(((t.featuredSubtitle ?? "").trim()) !== "" || isEditMode) && (
+                <p className="text-slate-600 max-w-xl mx-auto"><EditableText type="siteTexts" editKey="featuredSubtitle" value={t.featuredSubtitle} as="span" placeholder="מוצרים וחבילות שנבחרו במיוחד – במחיר משתלם" /></p>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
               {featuredProducts.map((product) => (
