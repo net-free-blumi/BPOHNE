@@ -843,27 +843,32 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
 
             </div>
 
-            {/* Mobile menu button */}
+            {/* Mobile menu button – לבן כדי שייראה על הרקע הכחול */}
             <div className="md:hidden flex items-center">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-gray-700 p-2"
+                className="text-white p-2.5 rounded-xl hover:bg-white/20 hover:text-orange-300 transition focus:outline-none focus:ring-2 focus:ring-white/50"
+                aria-label={mobileMenuOpen ? "סגור תפריט" : "פתח תפריט"}
               >
-                {mobileMenuOpen ? <X /> : <Menu />}
+                {mobileMenuOpen ? <X size={22} /> : <Menu size={24} />}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu – כותרת ברורה וקישורים בולטים */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#2a4a6f] border-t border-white/10 pb-4">
-            <div className="flex flex-col space-y-0 px-4 pt-2">
-              <a href="#promos" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>מבצעים</a>
-              <a href="#packages" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>חבילות</a>
-              <a href="#products" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>מוצרים</a>
-              <a href="#services" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>שירותים</a>
-              <a href="#locations" className="py-3 text-white/90 hover:text-orange-400 border-b border-white/10" onClick={() => setMobileMenuOpen(false)}>סניפים</a>
+          <div className="md:hidden bg-[#2a4a6f] border-t border-white/20 pb-4 shadow-lg">
+            <div className="px-4 pt-4 pb-2">
+              <p className="text-orange-400 font-bold text-sm uppercase tracking-wider mb-1">ניווט</p>
+              <h2 className="text-white text-lg font-bold">בחר אזור באתר</h2>
+            </div>
+            <div className="flex flex-col space-y-0 px-4">
+              <a href="#promos" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>מבצעים</a>
+              <a href="#packages" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>חבילות</a>
+              <a href="#products" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>מוצרים</a>
+              <a href="#services" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>שירותים</a>
+              <a href="#locations" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>סניפים</a>
             </div>
           </div>
         )}
