@@ -199,6 +199,29 @@ const MARKET_DEALS = [
   { provider: "Bezeq Fiber", providerName: "בזק סיבים", providerNameHe: "בזק", price: 119, priceDetail: "לחודש", category: "internet", dataGB: 0, calls: 0, sms: 0, extras: "כולל נתב Be, מהירות עד 2.5Gb", is5G: false, logoUrl: "./logos/bezeq.png", isHot: false, features: ["כולל נתב Be", "מהירות עד 2.5Gb", "סיבים אופטיים"] },
 ];
 
+const DEFAULT_SITE_TEXTS = {
+  heroBadge: "ביפון תקשורת סלולרית – בית שמש וביתר",
+  featuredBadge: "ההמלצות שלנו",
+  featuredTitle: "מבצעים מומלצים",
+  featuredSubtitle: "מוצרים וחבילות שנבחרו במיוחד – במחיר משתלם",
+  productsTitle: "מכשירים ומוצרים בחנות",
+  packagesTitle: "מצאו את החבילה שמתאימה לכם",
+  servicesTitle: "כל מה שצריך במקום אחד",
+  servicesSubtitle: "שירותים ופתרונות תקשורת בסגנון ביפון",
+  locationsTitle: "הסניפים שלנו",
+  footerTitle: "ביפון B-Phone – תקשורת סלולרית",
+  footerDesc: "הבית של הסלולר הכשר והחכם באזור. שירות אמין, מחירים הוגנים, מעבדה לתיקון מכשירים ומחשבים והתקנת סינון כשר.",
+  navFeatured: "מבצעים מומלצים",
+  navProducts: "אביזרים ומבצעים",
+  navPackages: "ניוד קווים",
+  navServices: "מעבדה",
+  navLocations: "צור קשר",
+  btnAllProducts: "לכל המוצרים",
+  btnAllPackages: "לכל החבילות",
+  btnFindBranch: "מצא סניף קרוב",
+};
+const DEFAULT_SECTION_VISIBILITY = { featured: true, products: true, packages: true, services: true, locations: true };
+
 const DEFAULT_CONFIG = {
   mainPhone: "0527151000",
   whatsapp: "0527151000",
@@ -209,6 +232,8 @@ const DEFAULT_CONFIG = {
   heroDefaultBannerIndex: -1,
   heroBannerDurationSeconds: 5,
   heroBannerRotation: true,
+  siteTexts: DEFAULT_SITE_TEXTS,
+  sectionVisibility: DEFAULT_SECTION_VISIBILITY,
   locations: [
     {
       id: "bs",
@@ -265,6 +290,59 @@ const PROVIDER_LOGO_PRESETS = [
 ];
 
 const INITIAL_ADVISOR_MESSAGE = { role: "assistant", text: "היי! 👋 אני ביביפ, היועץ של B-Phone. אפשר לשאול אותי על חבילות סלולר ואינטרנט, מוצרים, שעות הפתיחה או כל שאלה – ואשמח לכוון אותך. בסוף אפשר גם לשלוח לנו בוואטסאפ!" };
+
+// --- עריכה בתצוגה מקדימה (admin_edit=1) ---
+const EditModeContext = React.createContext(null);
+
+function EditableText({ type, editKey, value, as: Tag = "span", className = "", placeholder = "" }) {
+  const ctx = React.useContext(EditModeContext);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+
+  if (!ctx || !ctx.isEditMode) {
+    const display = (value ?? "").trim() || placeholder;
+    return <Tag className={className}>{display}</Tag>;
+  }
+
+  const save = (newVal) => {
+    const v = typeof newVal === "string" ? newVal.trim() : "";
+    if (type === "siteTexts") {
+      ctx.onEditSiteText(editKey, v);
+    } else if (type === "promo") {
+      ctx.onEditPromo(editKey, v);
+    } else if (type === "service") {
+      ctx.onEditService(editKey.serviceIndex, editKey.field, v);
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <span className={`inline-block ${className}`}>
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") save(draft); if (e.key === "Escape") { setDraft(value ?? ""); setEditing(false); } }}
+          className="min-w-[120px] max-w-full px-2 py-1 border-2 border-amber-500 rounded bg-white text-slate-800 text-inherit font-inherit"
+          autoFocus
+          onBlur={() => save(draft)}
+        />
+      </span>
+    );
+  }
+
+  const display = (value ?? "").trim() || (placeholder && "(ריק – לחץ לעריכה)") || "(לחץ לעריכה)";
+  return (
+    <Tag
+      className={`${className} cursor-pointer border-b-2 border-dashed border-amber-400 border-amber-500/80 hover:bg-amber-50/80 rounded px-0.5 -mx-0.5 transition`}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDraft(value ?? ""); setEditing(true); }}
+      title="לחץ לעריכה"
+    >
+      {display}
+    </Tag>
+  );
+}
 
 // --- ביביפ: יועץ AI (Gemini) עם חבילות, מוצרים ופרטי החנות ---
 function AiAdvisor({ packages = [], products = [], siteConfig = {}, onClose, messages: externalMessages, onMessagesChange }) {
@@ -433,6 +511,29 @@ function App() {
   const [bannerIndex, setBannerIndex] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const isAdmin = false; // ממשק ניהול הועבר ל-admin.html
+  const isEditMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("admin_edit") === "1";
+
+  const handleEditSiteText = (key, value) => {
+    setSiteConfig((prev) => ({ ...prev, siteTexts: { ...(prev.siteTexts || DEFAULT_SITE_TEXTS), [key]: value } }));
+    try { window.parent.postMessage({ type: "EDIT_SITE_TEXT", key, value }, "*"); } catch (_) {}
+  };
+  const handleEditPromo = (field, value) => {
+    setPromoMessage((prev) => ({ ...prev, [field]: value }));
+    try { window.parent.postMessage({ type: "EDIT_PROMO", field, value }, "*"); } catch (_) {}
+  };
+  const handleEditService = (index, field, value) => {
+    setSiteConfig((prev) => {
+      const services = (prev.services || []).map((s, i) => (i === index ? { ...s, [field]: value } : s));
+      return { ...prev, services };
+    });
+    try { window.parent.postMessage({ type: "EDIT_SERVICE", index, field, value }, "*"); } catch (_) {}
+  };
+  const editModeContextValue = isEditMode ? {
+    isEditMode: true,
+    onEditSiteText: handleEditSiteText,
+    onEditPromo: handleEditPromo,
+    onEditService: handleEditService,
+  } : null;
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 200);
@@ -507,6 +608,8 @@ function App() {
             }
             if (typeof merged.heroDefaultBannerIndex !== "number") merged.heroDefaultBannerIndex = merged.heroBanners.length > 0 ? 0 : -1;
             if (typeof merged.heroBannerDurationSeconds !== "number") merged.heroBannerDurationSeconds = 5;
+            merged.siteTexts = { ...DEFAULT_SITE_TEXTS, ...(configData.siteTexts || {}) };
+            merged.sectionVisibility = { ...DEFAULT_SECTION_VISIBILITY, ...(configData.sectionVisibility || {}) };
             return merged;
           });
           if (configData.promoMessage) setPromoMessage((prev) => ({ ...prev, ...configData.promoMessage }));
@@ -656,6 +759,16 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
   const displayedProducts = sortedProducts.slice(0, productsVisibleCount);
   const hasMoreProducts = !isAdmin && sortedProducts.length > productsVisibleCount;
 
+  const featuredProducts = useMemo(() => sortedProducts.filter((p) => p.featured), [sortedProducts]);
+  const featuredPackages = useMemo(
+    () => [...packages].filter((p) => p.featured).sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
+    [packages]
+  );
+  const hasFeatured = featuredProducts.length > 0 || featuredPackages.length > 0;
+
+  const t = siteConfig.siteTexts || DEFAULT_SITE_TEXTS;
+  const v = siteConfig.sectionVisibility || DEFAULT_SECTION_VISIBILITY;
+
   // איפוס "הצג עוד" כשמשנים טאב או חיפוש
   useEffect(() => {
     setPackagesVisibleCount(3);
@@ -668,7 +781,13 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
   const bphoneOrangeBg = "bg-orange-500 hover:bg-orange-400";
 
   return (
+    <EditModeContext.Provider value={editModeContextValue}>
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900" dir="rtl">
+      {isEditMode && (
+        <div className="bg-amber-500 text-amber-900 text-center py-2 px-4 text-sm font-bold sticky top-0 z-[60] shadow">
+          ✏️ מצב עריכה – לחץ על כל טקסט כדי לערוך, לשנות או למחוק. השינויים נשמרים אוטומטית.
+        </div>
+      )}
       {/* Navigation – סגנון ביפון: כחול כהה, לבן, דגש כתום */}
       <nav className={`${bphoneNavy} shadow-lg sticky top-0 z-50`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -790,66 +909,159 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8 relative z-20">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 py-1.5 px-4 rounded-full bg-white/10 border border-orange-400/50 text-sm font-semibold text-sky-100 mb-4">
-              <span className="text-orange-400">◆</span> ביפון תקשורת סלולרית – בית שמש וביתר
+              <span className="text-orange-400">◆</span> <EditableText type="siteTexts" editKey="heroBadge" value={t.heroBadge} />
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 text-white drop-shadow-md">
-              {promoMessage.title}
+              <EditableText type="promo" editKey="title" value={promoMessage.title} as="span" />
             </h2>
             <p className="text-lg sm:text-xl text-sky-100/90 max-w-2xl mx-auto mb-8">
-              {promoMessage.subtitle}
+              <EditableText type="promo" editKey="subtitle" value={promoMessage.subtitle} as="span" />
             </p>
             <div className="flex flex-wrap justify-center gap-3 mb-8">
-              <a href="#products" className="px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-400 transition text-sm">
-                אביזרים ומבצעים
-              </a>
-              <a href="#packages" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
-                ניוד קווים
-              </a>
-              <a href="#services" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
-                מעבדה
-              </a>
-    
+              {hasFeatured && v.featured !== false && (
+                <a href="#featured" className="px-4 py-2 rounded-lg bg-amber-400 text-amber-900 font-bold hover:bg-amber-300 transition text-sm shadow-lg">
+                  <EditableText type="siteTexts" editKey="navFeatured" value={t.navFeatured} placeholder="מבצעים מומלצים" />
+                </a>
+              )}
+              {v.products !== false && (
+                <a href="#products" className="px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-400 transition text-sm">
+                  <EditableText type="siteTexts" editKey="navProducts" value={t.navProducts} placeholder="אביזרים ומבצעים" />
+                </a>
+              )}
+              {v.packages !== false && (
+                <a href="#packages" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
+                  <EditableText type="siteTexts" editKey="navPackages" value={t.navPackages} placeholder="ניוד קווים" />
+                </a>
+              )}
+              {v.services !== false && (
+                <a href="#services" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
+                  <EditableText type="siteTexts" editKey="navServices" value={t.navServices} placeholder="מעבדה" />
+                </a>
+              )}
             </div>
             <div className="flex flex-wrap justify-center gap-4">
-              <a
-                href="#locations"
-                className="px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition shadow-lg"
-              >
-                מצא סניף קרוב
-              </a>
-              <a
-                href="#packages"
-                className="px-6 py-3 rounded-xl bg-transparent border-2 border-white text-white font-bold hover:bg-white/10 transition"
-              >
-                לכל החבילות
-              </a>
+              {v.locations !== false && ((t.btnFindBranch || "").trim() || isEditMode) && (
+                <a
+                  href="#locations"
+                  className="px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition shadow-lg"
+                >
+                  <EditableText type="siteTexts" editKey="btnFindBranch" value={t.btnFindBranch} placeholder="מצא סניף קרוב" />
+                </a>
+              )}
+              {v.packages !== false && ((t.btnAllPackages || "").trim() || isEditMode) && (
+                <a
+                  href="#packages"
+                  className="px-6 py-3 rounded-xl bg-transparent border-2 border-white text-white font-bold hover:bg-white/10 transition"
+                >
+                  <EditableText type="siteTexts" editKey="btnAllPackages" value={t.btnAllPackages} placeholder="לכל החבילות" />
+                </a>
+              )}
             </div>
           </div>
         </div>
       </div>
 
+      {/* מבצעים מומלצים – כותרת אחת, שורה אחת של מוצרים וחבילות יחד */}
+      {v.featured !== false && hasFeatured && (
+        <section id="featured" className="py-12 sm:py-16 bg-gradient-to-b from-amber-50/80 to-white border-b border-amber-100">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="text-center mb-8">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-amber-200/80 text-amber-900 text-sm font-bold mb-3"><EditableText type="siteTexts" editKey="featuredBadge" value={t.featuredBadge} placeholder="ההמלצות שלנו" /></span>
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] mb-2"><EditableText type="siteTexts" editKey="featuredTitle" value={t.featuredTitle} as="span" placeholder="מבצעים מומלצים" /></h2>
+              <p className="text-slate-600 max-w-xl mx-auto"><EditableText type="siteTexts" editKey="featuredSubtitle" value={t.featuredSubtitle} as="span" placeholder="מוצרים וחבילות שנבחרו במיוחד – במחיר משתלם" /></p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+              {featuredProducts.map((product) => (
+                <div key={`p-${product.id}`} className="flex flex-col min-h-[380px]" id={`product-${product.id || ""}`}>
+                  <ProductCard
+                    product={product}
+                    onWhatsApp={handleWhatsAppClick}
+                    onShare={handleShareProduct}
+                    onLightboxOpen={() => setProductLightboxOpen(true)}
+                    onLightboxClose={() => setProductLightboxOpen(false)}
+                  />
+                </div>
+              ))}
+              {featuredPackages.map((pkg) => {
+                const headerClass = getProviderStripeClass(pkg.provider, pkg.is5G);
+                const features = getPackageFeatures(pkg);
+                const displayName = getProviderDisplayName(pkg);
+                return (
+                  <div
+                    key={`pkg-${pkg.id}`}
+                    className="flex flex-col min-h-[380px] bg-white rounded-2xl border-2 border-amber-200/60 shadow-lg hover:shadow-xl transition overflow-hidden"
+                  >
+                    <div className={`${headerClass} px-4 pt-4 pb-4 text-white text-center relative flex-shrink-0`}>
+                      <div className="absolute top-2 right-2 bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full z-10">מבצע מומלץ</div>
+                      {pkg.logoUrl ? (
+                        <img src={pkg.logoUrl} alt={displayName} className="w-16 h-16 object-contain bg-white rounded-full p-1 shadow-lg border-2 border-white/50 mx-auto mb-2" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-2 border-2 border-white/50">
+                          <ProviderLogo provider={pkg.provider} url={null} />
+                        </div>
+                      )}
+                      <h3 className="text-lg font-bold">{displayName}</h3>
+                      <div className="flex justify-center items-baseline gap-1 mt-1">
+                        <span className="text-3xl font-extrabold">{formatPrice(pkg.price)}</span>
+                        <span className="text-lg font-semibold">₪</span>
+                      </div>
+                      <p className="text-xs opacity-90">/חודש</p>
+                      {pkg.priceDetail && <p className="text-xs opacity-95 mt-1">{pkg.priceDetail}</p>}
+                    </div>
+                    <div className="p-4 flex-grow flex flex-col min-h-0">
+                      <ul className="space-y-2 mb-4 text-sm text-slate-700">
+                        {features.slice(0, 3).map((f, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <Check size={14} className="text-green-500 shrink-0" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        onClick={() => handleWhatsAppClick(pkg)}
+                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 mt-auto transition"
+                      >
+                        <MessageCircle size={20} />
+                        לפרטים בוואטסאפ
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center mt-8">
+              {((t.btnAllProducts || "").trim() || isEditMode) && <a href="#products" className="inline-block px-6 py-3 rounded-xl bg-[#1e3a5f] text-white font-bold hover:bg-[#2a4a6f] transition"><EditableText type="siteTexts" editKey="btnAllProducts" value={t.btnAllProducts} placeholder="לכל המוצרים" /></a>}
+              {((t.btnAllPackages || "").trim() || isEditMode) && <a href="#packages" className="inline-block px-6 py-3 rounded-xl bg-white border-2 border-[#1e3a5f] text-[#1e3a5f] font-bold hover:bg-slate-50 transition mr-3"><EditableText type="siteTexts" editKey="btnAllPackages" value={t.btnAllPackages} placeholder="לכל החבילות" /></a>}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Services Grid */}
+      {v.services !== false && (
       <section id="services" className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center text-[#1e3a5f] mb-2">
-            כל מה שצריך במקום אחד
+            <EditableText type="siteTexts" editKey="servicesTitle" value={t.servicesTitle} as="span" placeholder="כל מה שצריך במקום אחד" />
           </h2>
-          <p className="text-center text-slate-500 mb-10">שירותים ופתרונות תקשורת בסגנון ביפון</p>
+          <p className="text-center text-slate-500 mb-10"><EditableText type="siteTexts" editKey="servicesSubtitle" value={t.servicesSubtitle} as="span" placeholder="שירותים ופתרונות תקשורת בסגנון ביפון" /></p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {siteConfig.services.map((service, idx) => (
               <ServiceCard
                 key={idx}
                 iconUrl={service.iconUrl}
                 defaultIcon={DEFAULT_SERVICE_ICONS[idx % DEFAULT_SERVICE_ICONS.length]}
-                title={service.title}
-                desc={service.desc}
+                title={isEditMode ? <EditableText type="service" editKey={{ serviceIndex: idx, field: "title" }} value={service.title} as="span" placeholder="כותרת" /> : service.title}
+                desc={isEditMode ? <EditableText type="service" editKey={{ serviceIndex: idx, field: "desc" }} value={service.desc} as="span" placeholder="תיאור" /> : service.desc}
               />
             ))}
           </div>
         </div>
       </section>
+      )}
 
       {/* Products Section */}
+      {v.products !== false && (
       <section
         id="products"
         className="py-12 bg-white border-t border-slate-200"
@@ -857,7 +1069,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <h2 className="text-3xl font-bold text-slate-800">
-              מכשירים ומוצרים בחנות
+              <EditableText type="siteTexts" editKey="productsTitle" value={t.productsTitle} as="span" placeholder="מכשירים ומוצרים בחנות" />
             </h2>
           </div>
 
@@ -897,8 +1109,10 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           )}
         </div>
       </section>
+      )}
 
       {/* Packages Section */}
+      {v.packages !== false && (
       <section
         id="packages"
         className="py-12 bg-slate-50 border-t border-slate-200"
@@ -909,7 +1123,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           </p>
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-3xl font-bold text-[#1e3a5f]">
-              מצאו את החבילה שמתאימה לכם
+              <EditableText type="siteTexts" editKey="packagesTitle" value={t.packagesTitle} as="span" placeholder="מצאו את החבילה שמתאימה לכם" />
             </h2>
 
             {/* טאבים */}
@@ -1076,12 +1290,14 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           )}
         </div>
       </section>
+      )}
 
       {/* Locations Section */}
+      {v.locations !== false && (
       <section id="locations" className="py-16 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center text-[#1e3a5f] mb-12">
-            הסניפים שלנו
+            <EditableText type="siteTexts" editKey="locationsTitle" value={t.locationsTitle} as="span" placeholder="הסניפים שלנו" />
           </h2>
           <div className="grid md:grid-cols-2 gap-8">
             {siteConfig.locations.map((loc, idx) => (
@@ -1096,6 +1312,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           </div>
         </div>
       </section>
+      )}
 
       {/* Footer – צבעי ביפון */}
       <footer className="bg-[#1e3a5f] text-sky-100/90 py-12">
@@ -1103,19 +1320,19 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           <div className="grid md:grid-cols-3 gap-8 text-sm">
             <div>
               <h3 className="text-white font-bold text-lg mb-4">
-                ביפון B-Phone – תקשורת סלולרית
+                <EditableText type="siteTexts" editKey="footerTitle" value={t.footerTitle} as="span" placeholder="ביפון B-Phone – תקשורת סלולרית" />
               </h3>
               <p className="mb-4">
-                הבית של הסלולר הכשר והחכם באזור. שירות אמין, מחירים הוגנים,
-                מעבדה לתיקון מכשירים ומחשבים והתקנת סינון כשר.
+                <EditableText type="siteTexts" editKey="footerDesc" value={t.footerDesc} as="span" placeholder="הבית של הסלולר הכשר והחכם באזור..." />
               </p>
             </div>
             <div>
               <h4 className="text-white font-bold mb-4">ניווט מהיר</h4>
               <ul className="space-y-2">
-                <li><a href="#packages" className="hover:text-orange-400 transition">חבילות סלולר</a></li>
-                <li><a href="#products" className="hover:text-orange-400 transition">מוצרים ומכשירים</a></li>
-                <li><a href="#locations" className="hover:text-orange-400 transition">צור קשר</a></li>
+                {v.featured !== false && hasFeatured && <li><a href="#featured" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navFeatured" value={t.navFeatured} placeholder="מבצעים מומלצים" /></a></li>}
+                {v.packages !== false && <li><a href="#packages" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navPackages" value={t.navPackages} placeholder="ניוד קווים" /></a></li>}
+                {v.products !== false && <li><a href="#products" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navProducts" value={t.navProducts} placeholder="אביזרים ומבצעים" /></a></li>}
+                {v.locations !== false && <li><a href="#locations" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navLocations" value={t.navLocations} placeholder="צור קשר" /></a></li>}
               </ul>
             </div>
             <div>
@@ -1252,6 +1469,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         document.body
       )}
     </div>
+    </EditModeContext.Provider>
   );
 }
 
@@ -1353,11 +1571,12 @@ function TabButton({ active, onClick, label, icon }) {
 }
 
 function ServiceCard({ iconUrl, defaultIcon: DefaultIcon, title, desc }) {
+  const titleStr = typeof title === "string" ? title : "";
   return (
     <div className="flex flex-col items-center p-6 bg-slate-50 rounded-xl hover:bg-blue-50 transition border border-transparent hover:border-blue-100">
       <div className="text-blue-600 mb-4 bg-white p-4 rounded-full shadow-sm w-16 h-16 flex items-center justify-center">
         {iconUrl ? (
-          <img src={iconUrl} alt={title} className="w-8 h-8 object-contain" />
+          <img src={iconUrl} alt={titleStr || "שירות"} className="w-8 h-8 object-contain" />
         ) : (
           <DefaultIcon size={32} />
         )}

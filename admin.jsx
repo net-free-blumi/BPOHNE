@@ -117,6 +117,31 @@ const Layout = () => <span className="text-base">🏠</span>;
 const Zap = () => <span className="text-base">⚡</span>;
 const ExternalLink = () => <span className="text-base">↗</span>;
 const Grip = () => <span className="text-slate-400 cursor-grab active:cursor-grabbing select-none text-lg" title="גרור לשינוי סדר">⋮⋮</span>;
+const Eye = () => <span className="text-lg" title="תצוגה מקדימה">👁</span>;
+const Refresh = () => <span className="text-base">🔄</span>;
+
+const DEFAULT_SITE_TEXTS = {
+  heroBadge: "ביפון תקשורת סלולרית – בית שמש וביתר",
+  featuredBadge: "ההמלצות שלנו",
+  featuredTitle: "מבצעים מומלצים",
+  featuredSubtitle: "מוצרים וחבילות שנבחרו במיוחד – במחיר משתלם",
+  productsTitle: "מכשירים ומוצרים בחנות",
+  packagesTitle: "מצאו את החבילה שמתאימה לכם",
+  servicesTitle: "כל מה שצריך במקום אחד",
+  servicesSubtitle: "שירותים ופתרונות תקשורת בסגנון ביפון",
+  locationsTitle: "הסניפים שלנו",
+  footerTitle: "ביפון B-Phone – תקשורת סלולרית",
+  footerDesc: "הבית של הסלולר הכשר והחכם באזור. שירות אמין, מחירים הוגנים, מעבדה לתיקון מכשירים ומחשבים והתקנת סינון כשר.",
+  navFeatured: "מבצעים מומלצים",
+  navProducts: "אביזרים ומבצעים",
+  navPackages: "ניוד קווים",
+  navServices: "מעבדה",
+  navLocations: "צור קשר",
+  btnAllProducts: "לכל המוצרים",
+  btnAllPackages: "לכל החבילות",
+  btnFindBranch: "מצא סניף קרוב",
+};
+const DEFAULT_SECTION_VISIBILITY = { featured: true, products: true, packages: true, services: true, locations: true };
 
 const DEFAULT_CONFIG = {
   mainPhone: "0527151000",
@@ -126,6 +151,8 @@ const DEFAULT_CONFIG = {
   heroBanners: [],
   heroDefaultBannerIndex: -1,
   heroBannerDurationSeconds: 5,
+  siteTexts: DEFAULT_SITE_TEXTS,
+  sectionVisibility: DEFAULT_SECTION_VISIBILITY,
   locations: [
     { id: "bs", city: "בית שמש", address: "רחוב יצחק רבין 17", phone: "052-7151000", hours: "א'-ה': 10:00-21:00" },
     { id: "beitar", city: "ביתר עילית", address: "המגיד ממעזריטש 71", phone: "02-9911213", hours: "א'-ה': 10:00-21:00" }
@@ -251,6 +278,67 @@ function Toast({ message, type, onClose }) {
   );
 }
 
+// --- Preview Modal (תצוגה מקדימה – שליטה מרחוק) ---
+function PreviewModal({ open, onClose, onRefresh, onEditSection, quickEditOpen, setQuickEditOpen, iframeKey }) {
+  if (!open) return null;
+
+  const quickEditItems = [
+    { id: "promo", label: "כותרת ומסר ראשי (מבצע ראשי)", section: "promo" },
+    { id: "settings", label: "כותרות, כפתורים והצגת אזורים", section: "settings" },
+    { id: "products", label: "מוצרים ומכשירים", section: "products" },
+    { id: "packages", label: "חבילות גלישה", section: "packages" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-900" dir="rtl">
+      <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-[#1e3a5f] text-white shadow-lg">
+        <div className="flex items-center gap-3">
+          <span className="font-bold text-lg">תצוגה מקדימה של האתר</span>
+          <span className="text-white/70 text-sm hidden sm:inline">לחץ על כל טקסט באתר כדי לערוך – השינויים נשמרים אוטומטית</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setQuickEditOpen(!quickEditOpen)} className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium">
+            {quickEditOpen ? "הסתר עריכה מהירה" : "הצג עריכה מהירה"}
+          </button>
+          <button onClick={onRefresh} className="p-2 rounded-lg bg-white/10 hover:bg-white/20" title="רענן תצוגה"><Refresh /></button>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 font-bold">סגור</button>
+        </div>
+      </header>
+      <div className="flex-1 flex min-h-0">
+        {quickEditOpen && (
+          <aside className="w-64 flex-shrink-0 bg-slate-800 border-l border-slate-700 overflow-y-auto p-4">
+            <h3 className="font-bold text-white mb-3 text-sm">עריכה מהירה</h3>
+            <p className="text-slate-400 text-xs mb-4">לחץ על פריט כדי לסגור את התצוגה ולעבור לעריכה באזור המתאים.</p>
+            <ul className="space-y-2">
+              {quickEditItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    onClick={() => { onEditSection(item.section); onClose(); }}
+                    className="w-full text-right px-3 py-2.5 rounded-lg bg-slate-700/80 hover:bg-amber-600/90 text-white text-sm font-medium transition"
+                  >
+                    {item.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        )}
+        <div className="flex-1 min-w-0 min-h-0 bg-slate-800 p-2 sm:p-4">
+          <div className="w-full h-full rounded-2xl overflow-hidden border-2 border-slate-600 shadow-2xl bg-white">
+            <iframe
+              key={iframeKey}
+              src="/?admin_edit=1"
+              title="תצוגה מקדימה של האתר"
+              className="w-full h-full border-0 rounded-xl"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Confirm Delete ---
 function ConfirmDelete({ title, message, onConfirm, onCancel }) {
   return (
@@ -283,6 +371,9 @@ function AdminApp() {
   const [packageToDelete, setPackageToDelete] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
   const [loginErrorMessage, setLoginErrorMessage] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
+  const [quickEditOpen, setQuickEditOpen] = useState(true);
 
   const showToast = (msg, type = "info") => {
     setToast({ message: msg, type });
@@ -331,7 +422,14 @@ function AdminApp() {
       productsRef.get().then((s) => s.docs.map((d) => ({ id: d.id, ...d.data() }))),
     ]).then(([cfg, pkgs, prods]) => {
       if (cfg) {
-        setSiteConfig((prev) => ({ ...DEFAULT_CONFIG, ...cfg, locations: cfg.locations || prev.locations, services: cfg.services || prev.services }));
+        setSiteConfig((prev) => ({
+          ...DEFAULT_CONFIG,
+          ...cfg,
+          locations: cfg.locations || prev.locations,
+          services: cfg.services || prev.services,
+          siteTexts: { ...DEFAULT_SITE_TEXTS, ...(cfg.siteTexts || {}) },
+          sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY, ...(cfg.sectionVisibility || {}) },
+        }));
         if (cfg.promoMessage) setPromoMessage((p) => ({ ...p, ...cfg.promoMessage }));
       }
       if (pkgs?.length) setPackages(pkgs.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)).map((p, i) => ({ ...p, order: p.order ?? i })));
@@ -342,6 +440,39 @@ function AdminApp() {
   useEffect(() => {
     try { sessionStorage.setItem("adminSection", activeSection); } catch (_) {}
   }, [activeSection]);
+
+  useEffect(() => {
+    const handler = (event) => {
+      const d = event.data;
+      if (!d || typeof d.type !== "string") return;
+      const db = getDb();
+      if (d.type === "EDIT_SITE_TEXT" && d.key != null) {
+        setSiteConfig((prev) => {
+          const nextSiteTexts = { ...(prev.siteTexts || {}), [d.key]: d.value };
+          if (db) db.doc("config/site").set({ siteTexts: nextSiteTexts }, { merge: true }).catch(() => {});
+          return { ...prev, siteTexts: nextSiteTexts };
+        });
+      } else if (d.type === "EDIT_PROMO" && d.field) {
+        setPromoMessage((prev) => {
+          const next = { ...prev, [d.field]: d.value };
+          if (db) db.doc("config/site").set({ promoMessage: next }, { merge: true }).catch(() => {});
+          return next;
+        });
+      } else if (d.type === "EDIT_SERVICE" && typeof d.index === "number" && d.field) {
+        setSiteConfig((prev) => {
+          const services = [...(prev.services || [])];
+          if (services[d.index]) {
+            services[d.index] = { ...services[d.index], [d.field]: d.value };
+            if (db) db.doc("config/site").set({ services }, { merge: true }).catch(() => {});
+            return { ...prev, services };
+          }
+          return prev;
+        });
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
 
   const handleLogin = () => {
     setLoggedIn(true);
@@ -386,6 +517,11 @@ function AdminApp() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><div className="animate-pulse text-slate-500">טוען...</div></div>;
   if (!loggedIn) return <LoginScreen onLogin={handleLogin} onLoginGoogle={handleLoginGoogle} showToast={showToast} initialError={loginErrorMessage} onClearInitialError={() => setLoginErrorMessage(null)} />;
 
+  const openPreviewAndEdit = (section) => {
+    setActiveSection(section);
+    setPreviewOpen(false);
+  };
+
   const navItems = [
     { id: "dashboard", label: "סקירה", icon: Layout },
     { id: "settings", label: "הגדרות אתר", icon: Settings },
@@ -417,6 +553,9 @@ function AdminApp() {
           ))}
         </nav>
         <div className="absolute bottom-0 right-0 left-0 p-4 border-t border-white/10">
+          <button onClick={() => { setPreviewOpen(true); setSidebarOpen(false); }} className="flex items-center gap-2 text-white/80 hover:text-white w-full mb-2 py-2 rounded-lg hover:bg-white/10 transition text-right">
+            <Eye /> תצוגה מקדימה של האתר
+          </button>
           <a href="/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/80 hover:text-white mb-2">
             <ExternalLink /> פתח את האתר
           </a>
@@ -440,22 +579,71 @@ function AdminApp() {
 
         <div className="p-8 md:p-10 lg:p-12">
           {activeSection === "dashboard" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div className="bg-white rounded-3xl p-10 shadow-lg border-2 border-slate-100">
-                <p className="text-slate-500 text-lg font-medium mb-2">חבילות</p>
-                <p className="text-5xl font-bold text-[#1e3a5f]">{packages.length}</p>
+            <div className="space-y-8">
+              <div className="text-center sm:text-right">
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">ברוך הבא לפאנל הניהול</h2>
+                <p className="text-slate-600">בחר לאן לעבור – כל השינויים נשמרים אוטומטית</p>
               </div>
-              <div className="bg-white rounded-3xl p-10 shadow-lg border-2 border-slate-100">
-                <p className="text-slate-500 text-lg font-medium mb-2">מוצרים</p>
-                <p className="text-5xl font-bold text-[#1e3a5f]">{products.length}</p>
+              <div className="flex flex-wrap gap-3 justify-center sm:justify-start mb-6">
+                <button
+                  type="button"
+                  onClick={() => setPreviewOpen(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-700 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all border-2 border-cyan-500/30"
+                >
+                  <Eye /> תצוגה מקדימה של האתר
+                </button>
+                <span className="self-center text-slate-500 text-sm">רואה את האתר כמו שהלקוחות רואים – ועריכה מהירה</span>
               </div>
-              <div className="bg-white rounded-3xl p-10 shadow-lg border-2 border-slate-100">
-                <p className="text-slate-500 text-lg font-medium mb-2">סניפים</p>
-                <p className="text-5xl font-bold text-[#1e3a5f]">{siteConfig.locations?.length || 0}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection("products"); setSidebarOpen(false); }}
+                  className="group flex flex-col items-center sm:items-start text-right p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-[#1e3a5f] to-[#2a4a6f] text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all border-2 border-[#1e3a5f]/20"
+                >
+                  <span className="text-4xl sm:text-5xl mb-3 block">📱</span>
+                  <span className="font-bold text-lg sm:text-xl mb-1">עריכת מוצרים</span>
+                  <span className="text-white/80 text-sm mb-4">הוסף, ערוך או מחק מוצרים ומכשירים</span>
+                  <span className="text-2xl sm:text-3xl font-extrabold">{products.length}</span>
+                  <span className="text-white/70 text-sm">מוצרים באתר</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection("packages"); setSidebarOpen(false); }}
+                  className="group flex flex-col items-center sm:items-start text-right p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-800 text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all border-2 border-emerald-500/20"
+                >
+                  <span className="text-4xl sm:text-5xl mb-3 block">📦</span>
+                  <span className="font-bold text-lg sm:text-xl mb-1">חבילות גלישה</span>
+                  <span className="text-white/80 text-sm mb-4">ניהול חבילות סלולר ואינטרנט</span>
+                  <span className="text-2xl sm:text-3xl font-extrabold">{packages.length}</span>
+                  <span className="text-white/70 text-sm">חבילות</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection("settings"); setSidebarOpen(false); }}
+                  className="group flex flex-col items-center sm:items-start text-right p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all border-2 border-amber-400/20"
+                >
+                  <span className="text-4xl sm:text-5xl mb-3 block">⚙️</span>
+                  <span className="font-bold text-lg sm:text-xl mb-1">הגדרות אתר</span>
+                  <span className="text-white/80 text-sm mb-4">לוגו, טלפון, סניפים, שירותים ובאנרים</span>
+                  <span className="text-2xl sm:text-3xl font-extrabold">{siteConfig.locations?.length || 0}</span>
+                  <span className="text-white/70 text-sm">סניפים</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveSection("promo"); setSidebarOpen(false); }}
+                  className="group flex flex-col items-center sm:items-start text-right p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-violet-600 to-violet-800 text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all border-2 border-violet-500/20"
+                >
+                  <span className="text-4xl sm:text-5xl mb-3 block">⚡</span>
+                  <span className="font-bold text-lg sm:text-xl mb-1">מבצע ראשי</span>
+                  <span className="text-white/80 text-sm mb-4">כותרת ומסר בראש העמוד</span>
+                  <span className="text-sm font-medium mt-2 px-3 py-1 rounded-full bg-white/20">{promoMessage?.active ? "פעיל" : "כבוי"}</span>
+                </button>
               </div>
-              <div className="col-span-full bg-white rounded-3xl p-10 shadow-lg border-2 border-slate-100">
-                <h3 className="font-bold text-2xl text-slate-800 mb-4">ברוך הבא לפאנל הניהול</h3>
-                <p className="text-slate-600 text-lg">בחר אחד מהפריטים בתפריט בצד כדי לערוך את האתר. הגדרות אתר, חבילות, מוצרים ומבצע ראשי – כל השינויים נשמרים ב-Firebase.</p>
+              <div className="flex flex-wrap gap-4 justify-center sm:justify-start text-sm">
+                <span className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-medium">{products.length} מוצרים</span>
+                <span className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-medium">{packages.length} חבילות</span>
+                <span className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-medium">{siteConfig.locations?.length || 0} סניפים</span>
+                <span className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-medium">{products.filter((p) => p.featured).length + packages.filter((p) => p.featured).length} במבצעים מומלצים</span>
               </div>
             </div>
           )}
@@ -470,11 +658,22 @@ function AdminApp() {
             <ProductsSection products={products} setProducts={setProducts} onDeleteRequest={setProductToDelete} showToast={showToast} />
           )}
           {activeSection === "promo" && (
-            <PromoSection promo={promoMessage} setPromo={setPromoMessage} showToast={showToast} />
+            <PromoSection promo={promoMessage} setPromo={setPromoMessage} showToast={showToast} products={products} packages={packages} onNavigate={setActiveSection} />
           )}
         </div>
       </main>
 
+      {previewOpen && (
+        <PreviewModal
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          onRefresh={() => setPreviewKey((k) => k + 1)}
+          onEditSection={openPreviewAndEdit}
+          quickEditOpen={quickEditOpen}
+          setQuickEditOpen={setQuickEditOpen}
+          iframeKey={previewKey}
+        />
+      )}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {packageToDelete && (
         <ConfirmDelete
@@ -521,10 +720,13 @@ function AdminApp() {
 }
 
 // --- Promo Section ---
-function PromoSection({ promo, setPromo, showToast }) {
+function PromoSection({ promo, setPromo, showToast, products = [], packages = [], onNavigate }) {
   const [form, setForm] = useState(promo);
   useEffect(() => setForm(promo), [promo]);
   const db = getDb();
+  const featuredProducts = (products || []).filter((p) => p.featured);
+  const featuredPackages = (packages || []).filter((p) => p.featured);
+
   const save = () => {
     if (db) {
       db.doc("config/site").set({ promoMessage: form }, { merge: true })
@@ -532,25 +734,60 @@ function PromoSection({ promo, setPromo, showToast }) {
         .catch((e) => { showToast("שגיאה בשמירה", "error"); });
     } else { setPromo(form); showToast("נשמר", "success"); }
   };
+
   return (
-    <div className="bg-white rounded-3xl p-10 shadow-lg max-w-3xl border-2 border-slate-100">
-      <h3 className="text-xl font-bold text-slate-800 mb-6 pb-3 border-b-2 border-[#1e3a5f]">מבצע ראשי (כותרת בעמוד הראשי)</h3>
-      <p className="text-slate-600 mb-6">הכותרת והמסר שמופיעים בראש העמוד הראשי, מעל החבילות והמוצרים.</p>
-      <div className="space-y-5">
-        <div className="p-4 bg-slate-50 rounded-xl">
-          <label className="block text-sm font-bold text-slate-800 mb-1">כותרת</label>
-          <input type="text" value={form.title || ""} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3 text-base" placeholder="לדוג׳: מבצעי השקה!" />
+    <div className="space-y-8 max-w-4xl">
+      <div className="bg-white rounded-3xl p-10 shadow-lg border-2 border-slate-100">
+        <h3 className="text-xl font-bold text-slate-800 mb-6 pb-3 border-b-2 border-[#1e3a5f]">מבצע ראשי (כותרת בעמוד הראשי)</h3>
+        <p className="text-slate-600 mb-6">הכותרת והמסר שמופיעים בראש העמוד הראשי, מעל החבילות והמוצרים.</p>
+        <div className="space-y-5">
+          <div className="p-4 bg-slate-50 rounded-xl">
+            <label className="block text-sm font-bold text-slate-800 mb-1">כותרת</label>
+            <input type="text" value={form.title || ""} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3 text-base" placeholder="לדוג׳: מבצעי השקה!" />
+          </div>
+          <div className="p-4 bg-slate-50 rounded-xl">
+            <label className="block text-sm font-bold text-slate-800 mb-1">תת-כותרת</label>
+            <input type="text" value={form.subtitle || ""} onChange={(e) => setForm((f) => ({ ...f, subtitle: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3 text-base" placeholder="לדוג׳: הצטרפו היום" />
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-xl">
+            <input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} className="w-5 h-5" />
+            <span className="font-bold text-slate-800">מבצע פעיל</span>
+            <span className="text-sm text-slate-500">(אם מסומן – הכותרת תוצג בעמוד הראשי)</span>
+          </label>
+          <button onClick={save} className="w-full bg-[#1e3a5f] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#2a4a6f] transition">שמור מבצע ראשי</button>
         </div>
-        <div className="p-4 bg-slate-50 rounded-xl">
-          <label className="block text-sm font-bold text-slate-800 mb-1">תת-כותרת</label>
-          <input type="text" value={form.subtitle || ""} onChange={(e) => setForm((f) => ({ ...f, subtitle: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3 text-base" placeholder="לדוג׳: הצטרפו היום" />
+      </div>
+
+      <div className="bg-white rounded-3xl p-10 shadow-lg border-2 border-slate-100">
+        <h3 className="text-xl font-bold text-slate-800 mb-2 pb-3 border-b-2 border-amber-200">מוצרים וחבילות במבצעים המומלצים</h3>
+        <p className="text-slate-600 mb-6">אלה המוצרים והחבילות שסומנו "במבצעים מומלצים" – הם יופיעו בראש האתר. לעריכת פריט או להסרתו מהמבצעים עברו למוצרים או לחבילות.</p>
+        <div className="space-y-4">
+          {featuredProducts.length > 0 && (
+            <div>
+              <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-2"><span>📱</span> מוצרים ({featuredProducts.length})</h4>
+              <ul className="list-disc list-inside space-y-1 text-slate-600 mb-2">
+                {featuredProducts.map((p) => (
+                  <li key={p.id}>{p.name || "ללא שם"}{p.price != null ? ` – ₪${p.price}` : ""}</li>
+                ))}
+              </ul>
+              {onNavigate && <button type="button" onClick={() => onNavigate("products")} className="text-[#1e3a5f] font-medium hover:underline">ערוך מוצרים →</button>}
+            </div>
+          )}
+          {featuredPackages.length > 0 && (
+            <div>
+              <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-2"><span>📦</span> חבילות ({featuredPackages.length})</h4>
+              <ul className="list-disc list-inside space-y-1 text-slate-600 mb-2">
+                {featuredPackages.map((p) => (
+                  <li key={p.id}>{p.providerName || p.provider || "ללא שם"} – ₪{p.price}/חודש</li>
+                ))}
+              </ul>
+              {onNavigate && <button type="button" onClick={() => onNavigate("packages")} className="text-[#1e3a5f] font-medium hover:underline">ערוך חבילות →</button>}
+            </div>
+          )}
+          {featuredProducts.length === 0 && featuredPackages.length === 0 && (
+            <p className="text-slate-500 py-4">אין עדיין מוצרים או חבילות במבצעים המומלצים. הוסף מוצר או חבילה וסמן "במבצעים מומלצים" בשמירה.</p>
+          )}
         </div>
-        <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-xl">
-          <input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} className="w-5 h-5" />
-          <span className="font-bold text-slate-800">מבצע פעיל</span>
-          <span className="text-sm text-slate-500">(אם מסומן – הכותרת תוצג בעמוד הראשי)</span>
-        </label>
-        <button onClick={save} className="w-full bg-[#1e3a5f] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#2a4a6f] transition">שמור מבצע ראשי</button>
       </div>
     </div>
   );
@@ -560,6 +797,10 @@ function PromoSection({ promo, setPromo, showToast }) {
 function SettingsSection({ config, onSave, showToast }) {
   const [form, setForm] = useState(config);
   useEffect(() => setForm(config), [config]);
+  const texts = form.siteTexts || DEFAULT_SITE_TEXTS;
+  const vis = form.sectionVisibility || DEFAULT_SECTION_VISIBILITY;
+  const setText = (key, val) => setForm((f) => ({ ...f, siteTexts: { ...(f.siteTexts || DEFAULT_SITE_TEXTS), [key]: val } }));
+  const setVis = (key, val) => setForm((f) => ({ ...f, sectionVisibility: { ...(f.sectionVisibility || DEFAULT_SECTION_VISIBILITY), [key]: val } }));
   const [logoUp, setLogoUp] = useState(false);
   const [botUp, setBotUp] = useState(false);
   const db = getDb();
@@ -672,6 +913,40 @@ function SettingsSection({ config, onSave, showToast }) {
             ))}
           </div>
         </div>
+
+        <div className="p-8 bg-violet-50/70 rounded-2xl border-2 border-violet-200">
+          <h4 className="text-lg font-bold text-slate-800 mb-2">הצג / הסתר אזורים באתר</h4>
+          <p className="text-sm text-slate-600 mb-4">בחר אילו קטעים יופיעו בעמוד הראשי. כשהתיבה לא מסומנת – האזור לא יוצג כלל (כולל קישורים אליו).</p>
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-2 cursor-pointer" title="אזור הכרטיסים בראש האתר – מוצרים וחבילות שסימנת במבצעים מומלצים"><input type="checkbox" checked={vis.featured !== false} onChange={(e) => setVis("featured", e.target.checked)} className="w-5 h-5" /><span>מבצעים מומלצים</span></label>
+            <label className="flex items-center gap-2 cursor-pointer" title="אזור רשימת המוצרים והמכשירים"><input type="checkbox" checked={vis.products !== false} onChange={(e) => setVis("products", e.target.checked)} className="w-5 h-5" /><span>אזור מוצרים</span></label>
+            <label className="flex items-center gap-2 cursor-pointer" title="אזור חבילות הסלולר והאינטרנט"><input type="checkbox" checked={vis.packages !== false} onChange={(e) => setVis("packages", e.target.checked)} className="w-5 h-5" /><span>אזור חבילות</span></label>
+            <label className="flex items-center gap-2 cursor-pointer" title="אזור ארבעת השירותים – מעבדה, סינון כשר וכו׳"><input type="checkbox" checked={vis.services !== false} onChange={(e) => setVis("services", e.target.checked)} className="w-5 h-5" /><span>אזור שירותים</span></label>
+            <label className="flex items-center gap-2 cursor-pointer" title="אזור הסניפים – כתובות, טלפונים ושעות"><input type="checkbox" checked={vis.locations !== false} onChange={(e) => setVis("locations", e.target.checked)} className="w-5 h-5" /><span>אזור סניפים</span></label>
+          </div>
+        </div>
+
+        <div className="p-8 bg-slate-50 rounded-2xl border-2 border-slate-200">
+          <h4 className="text-lg font-bold text-slate-800 mb-2">כותרות וטקסטים באתר</h4>
+          <p className="text-sm text-slate-600 mb-2">ערוך את הכותרות והמשפטים שמופיעים בעמוד הראשי. ריק = יוצג טקסט ברירת מחדל.</p>
+          <p className="text-sm text-amber-700 mb-4 font-medium">כפתורים (למטה): אם תמחק את הטקסט ותשמור – הכפתור ייעלם מהאתר.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 space-y-4">
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">תג מעל כותרת מבצעים מומלצים</label><p className="text-xs text-slate-500 mb-1">התג הצבעוני הקטן (למשל "ההמלצות שלנו")</p><input value={texts.featuredBadge || ""} onChange={(e) => setText("featuredBadge", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="ההמלצות שלנו" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כותרת אזור מבצעים מומלצים</label><p className="text-xs text-slate-500 mb-1">הכותרת הראשית של האזור</p><input value={texts.featuredTitle || ""} onChange={(e) => setText("featuredTitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="מבצעים מומלצים" /></div>
+            <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-1">תת-כותרת אזור מבצעים מומלצים</label><p className="text-xs text-slate-500 mb-1">משפט מתחת לכותרת</p><input value={texts.featuredSubtitle || ""} onChange={(e) => setText("featuredSubtitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="מוצרים וחבילות שנבחרו במיוחד..." /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כותרת אזור המוצרים</label><p className="text-xs text-slate-500 mb-1">מעל רשימת המוצרים</p><input value={texts.productsTitle || ""} onChange={(e) => setText("productsTitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="מכשירים ומוצרים בחנות" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כותרת אזור החבילות</label><p className="text-xs text-slate-500 mb-1">מעל רשימת חבילות הסלולר</p><input value={texts.packagesTitle || ""} onChange={(e) => setText("packagesTitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="מצאו את החבילה שמתאימה לכם" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כותרת אזור השירותים</label><p className="text-xs text-slate-500 mb-1">מעל ארבעת כרטיסי השירות</p><input value={texts.servicesTitle || ""} onChange={(e) => setText("servicesTitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="כל מה שצריך במקום אחד" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">תת-כותרת אזור השירותים</label><p className="text-xs text-slate-500 mb-1">משפט מתחת לכותרת</p><input value={texts.servicesSubtitle || ""} onChange={(e) => setText("servicesSubtitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="שירותים ופתרונות תקשורת..." /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כותרת אזור הסניפים</label><p className="text-xs text-slate-500 mb-1">מעל רשימת הסניפים</p><input value={texts.locationsTitle || ""} onChange={(e) => setText("locationsTitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="הסניפים שלנו" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כותרת הפוטר (תחילת העמודה)</label><p className="text-xs text-slate-500 mb-1">בתחתית האתר</p><input value={texts.footerTitle || ""} onChange={(e) => setText("footerTitle", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="ביפון B-Phone – תקשורת סלולרית" /></div>
+            <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-1">תיאור הפוטר</label><p className="text-xs text-slate-500 mb-1">פסקה מתחת לכותרת הפוטר</p><input value={texts.footerDesc || ""} onChange={(e) => setText("footerDesc", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="הבית של הסלולר הכשר..." /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „לכל המוצרים” (באזור המבצעים)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnAllProducts || ""} onChange={(e) => setText("btnAllProducts", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="לכל המוצרים" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „לכל החבילות” (באזור המבצעים)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnAllPackages || ""} onChange={(e) => setText("btnAllPackages", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="לכל החבילות" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „מצא סניף” (בראש העמוד)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnFindBranch || ""} onChange={(e) => setText("btnFindBranch", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="מצא סניף קרוב" /></div>
+          </div>
+        </div>
+
         <button onClick={save} className="w-full max-w-md mx-auto block px-8 py-4 bg-[#1e3a5f] text-white rounded-xl font-bold text-lg hover:bg-[#2a4a6f]">שמור הגדרות</button>
       </div>
     </div>
@@ -725,6 +1000,20 @@ function PackagesSection({ packages, setPackages, onDeleteRequest, showToast }) 
     }
   };
 
+  const togglePackageFeatured = async (pkg) => {
+    const next = !pkg.featured;
+    if (db && pkg.id && !String(pkg.id).startsWith("demo-")) {
+      try {
+        await db.collection("packages").doc(pkg.id).update({ featured: next });
+        setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, featured: next } : p)));
+        showToast(next ? "נוסף למבצעים המומלצים" : "הוסר ממבצעים מומלצים", "success");
+      } catch { showToast("שגיאה בעדכון", "error"); }
+    } else {
+      setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, featured: next } : p)));
+      showToast(next ? "נוסף למבצעים" : "הוסר ממבצעים", "success");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
@@ -763,13 +1052,22 @@ function PackagesSection({ packages, setPackages, onDeleteRequest, showToast }) 
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-col gap-1">
-                    <span className="font-bold text-xl text-slate-800 leading-tight">{p.providerName || p.provider}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {p.featured && <span className="inline-block px-2 py-0.5 bg-amber-400 text-amber-900 rounded text-xs font-bold" title="במבצעים המומלצים באתר">✓ במבצע מומלץ</span>}
+                      <span className="font-bold text-xl text-slate-800 leading-tight">{p.providerName || p.provider}</span>
+                    </div>
                     {p.badge && <span className="inline-block w-fit px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg text-sm font-medium">{p.badge}</span>}
                     <span className="text-slate-600 font-semibold text-lg">₪{formatPrice(p.price)}/חודש</span>
                     {p.priceDetail && <span className="text-slate-500 text-sm">{p.priceDetail}</span>}
                   </div>
                 </div>
               </div>
+            </div>
+            <div className={`px-6 py-3 flex items-center gap-2 border-b border-slate-100 bg-amber-50/50`}>
+              <label className="flex items-center gap-2 cursor-pointer text-sm" title="סימון/ביטול – יופיע או לא יופיע באזור המבצעים המומלצים">
+                <input type="checkbox" checked={!!p.featured} onChange={() => togglePackageFeatured(p)} className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600" onClick={(e) => e.stopPropagation()} />
+                <span className="font-medium text-slate-700">במבצע מומלץ</span>
+              </label>
             </div>
             <div className={`px-6 py-5 flex-1 min-h-[100px] ${Array.isArray(p.features) && p.features.length > 0 ? "bg-slate-50/70" : "bg-slate-50/30"}`}>
               {Array.isArray(p.features) && p.features.length > 0 ? (
@@ -798,7 +1096,7 @@ function PackagesSection({ packages, setPackages, onDeleteRequest, showToast }) 
 }
 
 function PackageFormModal({ pkg, onSave, onClose }) {
-  const [form, setForm] = useState(pkg || { provider: "", providerName: "", price: "", priceDetail: "", category: "4g", dataGB: 0, calls: "ללא הגבלה", features: [], logoUrl: "", isHot: false, badge: "", afterPrice: "", extras: "", is5G: false, order: 0 });
+  const [form, setForm] = useState(pkg || { provider: "", providerName: "", price: "", priceDetail: "", category: "4g", dataGB: 0, calls: "ללא הגבלה", features: [], logoUrl: "", isHot: false, badge: "", afterPrice: "", extras: "", is5G: false, order: 0, featured: false });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 overflow-y-auto" onClick={onClose}>
       <div className="bg-white rounded-3xl p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto border-2 border-slate-200 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -832,6 +1130,11 @@ function PackageFormModal({ pkg, onSave, onClose }) {
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={!!form.isHot} onChange={(e) => setForm((f) => ({ ...f, isHot: e.target.checked }))} className="w-5 h-5" />
               <span className="font-bold">מבצע מומלץ</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer" title="יופיע בראש האתר באזור המבצעים המומלצים">
+              <input type="checkbox" checked={!!form.featured} onChange={(e) => setForm((f) => ({ ...f, featured: e.target.checked }))} className="w-5 h-5" />
+              <span className="font-bold text-amber-800">במבצעים מומלצים</span>
+              <span className="text-xs text-slate-500">(למעלה באתר)</span>
             </label>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">תג מבצע (אופציונלי)</label>
@@ -889,7 +1192,7 @@ function PackageFormModal({ pkg, onSave, onClose }) {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 border-2 border-slate-300 rounded-xl py-3 font-bold hover:bg-slate-50">ביטול</button>
-          <button onClick={() => onSave({ ...form, id: pkg?.id, price: Number(form.price) || 0, dataGB: Number(form.dataGB) || 0, order: form.order ?? pkg?.order ?? 0 })} className="flex-1 bg-[#1e3a5f] text-white rounded-xl py-3 font-bold">שמור והוסף לאתר</button>
+          <button onClick={() => onSave({ ...form, id: pkg?.id, price: Number(form.price) || 0, dataGB: Number(form.dataGB) || 0, order: form.order ?? pkg?.order ?? 0, featured: !!form.featured })} className="flex-1 bg-[#1e3a5f] text-white rounded-xl py-3 font-bold">שמור והוסף לאתר</button>
         </div>
       </div>
     </div>
@@ -926,7 +1229,7 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
 
   const saveProduct = async (prod) => {
     const maxOrder = products.reduce((m, p) => Math.max(m, p.order ?? 0), 0);
-    const payload = { name: prod.name, price: prod.price ?? null, description: prod.description || "", tags: prod.tags || [], images: prod.images || [], order: prod.order ?? maxOrder + 1, badge: prod.badge || "" };
+    const payload = { name: prod.name, price: prod.price ?? null, description: prod.description || "", tags: prod.tags || [], images: prod.images || [], order: prod.order ?? maxOrder + 1, badge: prod.badge || "", featured: !!prod.featured };
     if (db) {
       try {
         if (prod.id && !String(prod.id).startsWith("prod-")) {
@@ -941,6 +1244,20 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
     } else {
       setProducts((prev) => [...prev, { ...payload, id: prod.id || `prod-${Date.now()}` }]);
       showToast("נוסף", "success");
+    }
+  };
+
+  const toggleProductFeatured = async (prod) => {
+    const next = !prod.featured;
+    if (db && prod.id && !String(prod.id).startsWith("prod-")) {
+      try {
+        await db.collection("products").doc(prod.id).update({ featured: next });
+        setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, featured: next } : p)));
+        showToast(next ? "נוסף למבצעים המומלצים" : "הוסר ממבצעים מומלצים", "success");
+      } catch { showToast("שגיאה בעדכון", "error"); }
+    } else {
+      setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, featured: next } : p)));
+      showToast(next ? "נוסף למבצעים" : "הוסר ממבצעים", "success");
     }
   };
 
@@ -993,13 +1310,18 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
               )}
             </div>
             <div className="p-4 flex-1 flex flex-col">
-              <div className="flex gap-2 flex-wrap mb-1">
+              <div className="flex gap-2 flex-wrap mb-1 items-center">
+                {p.featured && <span className="px-2 py-0.5 bg-amber-400 text-amber-900 rounded text-xs font-bold flex items-center gap-1" title="במבצעים המומלצים באתר">✓ במבצע מומלץ</span>}
                 {p.badge && <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-medium">{p.badge}</span>}
               </div>
               <p className="font-bold text-base text-slate-800">{p.name}</p>
               <p className="text-slate-600 font-medium text-sm">₪{formatPrice(p.price)}</p>
               {p.description && <p className="text-slate-500 text-sm mt-2 line-clamp-2 leading-relaxed">{p.description}</p>}
               {p.tags?.length > 0 && <p className="text-slate-400 text-xs mt-2">{p.tags.join(", ")}</p>}
+              <label className="flex items-center gap-2 mt-2 cursor-pointer group" title="סימון/ביטול – יופיע או לא יופיע באזור המבצעים המומלצים בראש האתר">
+                <input type="checkbox" checked={!!p.featured} onChange={() => toggleProductFeatured(p)} className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600" onClick={(e) => e.stopPropagation()} />
+                <span className="text-sm font-medium text-slate-600 group-hover:text-amber-700">במבצע מומלץ</span>
+              </label>
               <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
                 <button onClick={() => { setEditing(p); setShowForm(true); }} className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 text-sm"><Edit2 /> ערוך</button>
                 <button onClick={() => onDeleteRequest(p)} className="flex-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 text-sm"><Trash2 /> מחק</button>
@@ -1014,7 +1336,7 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
 }
 
 function ProductFormModal({ product, onSave, onClose, showToast }) {
-  const [form, setForm] = useState(product ? { ...product, imagesText: (product.images || []).join("\n"), tagsText: (product.tags || []).join(", ") } : { name: "", price: "", imagesText: "", description: "", tagsText: "", badge: "" });
+  const [form, setForm] = useState(product ? { ...product, imagesText: (product.images || []).join("\n"), tagsText: (product.tags || []).join(", "), featured: !!product.featured } : { name: "", price: "", imagesText: "", description: "", tagsText: "", badge: "", featured: false });
   const [newFiles, setNewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -1060,7 +1382,7 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
       setUploading(false);
     }
     const tags = form.tagsText ? form.tagsText.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order });
+    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order, featured: !!form.featured });
   };
 
   return (
@@ -1087,6 +1409,13 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
             <label className="block text-sm font-bold text-slate-800 mb-1">תגית מבצע (אופציונלי)</label>
             <p className="text-xs text-slate-500 mb-2">יופיע על כרטיס המוצר בפינה – לדוג׳: מבצע חם! / חדש בסניפים / הגיע חדש</p>
             <input value={form.badge || ""} onChange={(e) => setForm((f) => ({ ...f, badge: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3" placeholder="מבצע חם! / חדש בסניפים" />
+          </div>
+          <div className="p-4 bg-slate-50 rounded-xl">
+            <label className="flex items-center gap-3 cursor-pointer" title="יופיע בראש האתר באזור המבצעים המומלצים">
+              <input type="checkbox" checked={!!form.featured} onChange={(e) => setForm((f) => ({ ...f, featured: e.target.checked }))} className="w-5 h-5" />
+              <span className="font-bold text-amber-800">הצג במבצעים מומלצים</span>
+              <span className="text-xs text-slate-500">(למעלה בעמוד הראשי)</span>
+            </label>
           </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">תיאור המוצר</label>
