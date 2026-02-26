@@ -496,7 +496,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
-  const [productLightboxOpen, setProductLightboxOpen] = useState(false);
+  const [productDetailOpen, setProductDetailOpen] = useState(null); // { product, startImageIndex } or null
   const [advisorMessages, setAdvisorMessages] = useState([INITIAL_ADVISOR_MESSAGE]);
   const [accOpen, setAccOpen] = useState(false);
   const [accFontSize, setAccFontSize] = useState(() => {
@@ -977,8 +977,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                     product={product}
                     onWhatsApp={handleWhatsAppClick}
                     onShare={handleShareProduct}
-                    onLightboxOpen={() => setProductLightboxOpen(true)}
-                    onLightboxClose={() => setProductLightboxOpen(false)}
+                    onOpenDetail={(p, startIndex) => setProductDetailOpen({ product: p, startImageIndex: startIndex ?? 0 })}
                   />
                 </div>
               ))}
@@ -1022,7 +1021,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                         className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 mt-auto transition"
                       >
                         <MessageCircle size={20} />
-                        לפרטים בוואטסאפ
+                        להצטרפות
                       </button>
                     </div>
                   </div>
@@ -1088,8 +1087,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                       product={product}
                       onWhatsApp={handleWhatsAppClick}
                       onShare={handleShareProduct}
-                      onLightboxOpen={() => setProductLightboxOpen(true)}
-                      onLightboxClose={() => setProductLightboxOpen(false)}
+                      onOpenDetail={(p, startIndex) => setProductDetailOpen({ product: p, startImageIndex: startIndex ?? 0 })}
                     />
                   </div>
                 ))}
@@ -1269,7 +1267,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                         className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-xl mt-auto"
                       >
                         <MessageCircle size={22} />
-                        לפרטים והצטרפות בוואטסאפ
+                        להצטרפות
                       </button>
                     </div>
                   </div>
@@ -1418,6 +1416,16 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         </div>
       )}
 
+      {productDetailOpen && (
+        <ProductDetailSheet
+          product={productDetailOpen.product}
+          startImageIndex={productDetailOpen.startImageIndex ?? 0}
+          onClose={() => setProductDetailOpen(null)}
+          onWhatsApp={handleWhatsAppClick}
+          onShare={handleShareProduct}
+        />
+      )}
+
       {toast && (
         <Toast
           message={toast.message}
@@ -1429,7 +1437,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       {typeof document !== "undefined" && document.body && window.ReactDOM && window.ReactDOM.createPortal(
         <>
           {/* כפתור ביביפ – מוסתר כשהצ'אט פתוח או כשמוצר/לייטאבוקס פתוח */}
-          {!showAiAdvisor && !productLightboxOpen && (
+          {!showAiAdvisor && !productDetailOpen && (
             <div style={{ position: "fixed", bottom: "1.5rem", left: "1.5rem", zIndex: 99999, isolation: "isolate" }}>
               <button
                 type="button"
@@ -1646,6 +1654,135 @@ function LocationCard({ city, address, hours, phone }) {
   );
 }
 
+// --- חלונית פרטי מוצר – כמעט מסך מלא, רקע לבן, מקצועי ---
+function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp, onShare }) {
+  const images = (product.images && product.images.length > 0) ? product.images : (product.imageUrl ? [product.imageUrl] : []);
+  const [imageIndex, setImageIndex] = useState(Math.min(startImageIndex, Math.max(0, images.length - 1)));
+  const mainImage = images[imageIndex];
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 md:p-5" dir="rtl">
+      <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-md" onClick={onClose} aria-hidden />
+      <div
+        className="relative w-full max-w-3xl h-[96vh] max-h-[96vh] bg-white rounded-2xl sm:rounded-3xl flex flex-col overflow-hidden border border-slate-100"
+        style={{ boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-100">
+          <h2 className="text-lg font-bold text-slate-800 truncate ml-2">פרטי מוצר</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
+            aria-label="סגור"
+          >
+            <X size={24} />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {images.length > 0 && (
+            <div className="relative bg-slate-50 border-b border-slate-100">
+              <div className="aspect-square max-h-[45vh] w-full flex items-center justify-center p-4">
+                <img
+                  src={mainImage}
+                  alt={product.name}
+                  className="max-w-full max-h-full object-contain rounded-xl"
+                />
+              </div>
+              {images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setImageIndex((i) => (i - 1 + images.length) % images.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
+                    aria-label="תמונה קודמת"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImageIndex((i) => (i + 1) % images.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
+                    aria-label="תמונה הבאה"
+                  >
+                    ›
+                  </button>
+                  <div className="flex gap-2 justify-center pb-3 flex-wrap px-4">
+                    {images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setImageIndex(idx)}
+                        className={`w-12 h-12 rounded-lg overflow-hidden border-2 shrink-0 transition ${
+                          idx === imageIndex ? "border-[#1e3a5f] ring-2 ring-[#1e3a5f]/30" : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <div className="p-4 sm:p-6">
+            {product.badge && (
+              <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-sm font-bold mb-3">
+                {product.badge}
+              </span>
+            )}
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2 leading-tight">
+              {product.name}
+            </h1>
+            {product.tags && product.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {product.tags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="text-xs px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            {product.description && (
+              <p className="text-slate-600 whitespace-pre-line leading-relaxed mb-6">
+                {product.description}
+              </p>
+            )}
+            {product.price != null && product.price !== "" && (
+              <p className="text-2xl font-extrabold text-[#1e3a5f] mb-6">
+                ₪{formatPrice(product.price)}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => onWhatsApp?.({ ...product, category: "product" })}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition shadow-lg shadow-green-500/25"
+              >
+                <MessageCircle size={20} />
+                לפרטים
+              </button>
+              {onShare && (
+                <button
+                  type="button"
+                  onClick={() => onShare(product)}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition"
+                >
+                  <Share2 size={18} />
+                  שתף מוצר
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductImageLightbox({ product, images, startIndex, onClose }) {
   const [index, setIndex] = useState(startIndex);
   const goNext = () => setIndex((i) => (i + 1) % images.length);
@@ -1732,22 +1869,14 @@ function ProductImageLightbox({ product, images, startIndex, onClose }) {
   );
 }
 
-function ProductCard({ product, onWhatsApp, onShare, onLightboxOpen, onLightboxClose }) {
+function ProductCard({ product, onWhatsApp, onShare, onOpenDetail }) {
   const images = (product.images && product.images.length > 0) ? product.images : (product.imageUrl ? [product.imageUrl] : []);
   const mainImage = images[0];
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxStartIndex, setLightboxStartIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
 
-  const openLightbox = (idx) => (e) => {
+  const openDetail = (imageIndex) => (e) => {
     e.stopPropagation();
-    setLightboxStartIndex(idx);
-    setLightboxOpen(true);
-    onLightboxOpen?.();
-  };
-  const closeLightbox = () => {
-    setLightboxOpen(false);
-    onLightboxClose?.();
+    onOpenDetail?.(product, imageIndex);
   };
 
   const hasLongDescription = product.description && product.description.trim().length > 100;
@@ -1755,13 +1884,25 @@ function ProductCard({ product, onWhatsApp, onShare, onLightboxOpen, onLightboxC
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full min-h-[420px] relative group">
       {mainImage && (
-        <div className="w-full h-48 sm:h-52 bg-slate-100 flex-shrink-0 relative">
+        <div
+          className="w-full h-48 sm:h-52 bg-slate-100 flex-shrink-0 relative cursor-pointer overflow-hidden"
+          onClick={openDetail(0)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpenDetail?.(product, 0))}
+          title="לחץ לצפייה בפרטי המוצר"
+          aria-label={`צפה בפרטי ${product.name}`}
+        >
           <img
             src={mainImage}
             alt={product.name}
-            className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition"
-            onClick={openLightbox(0)}
+            className="w-full h-full object-cover transition group-hover:scale-[1.03] duration-300"
           />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 transition text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl">
+              צפה בפרטים
+            </span>
+          </div>
           {onShare && (
             <button
               type="button"
@@ -1781,7 +1922,14 @@ function ProductCard({ product, onWhatsApp, onShare, onLightboxOpen, onLightboxC
         </span>
       )}
       <div className="p-4 flex-grow flex flex-col min-h-0">
-        <h3 className="text-lg font-bold text-slate-900 mb-1.5 leading-tight">
+        <h3
+          className="text-lg font-bold text-slate-900 mb-1.5 leading-tight cursor-pointer hover:text-[#1e3a5f] hover:underline decoration-2 underline-offset-2 transition"
+          onClick={() => onOpenDetail?.(product, 0)}
+          role={onOpenDetail ? "button" : undefined}
+          tabIndex={onOpenDetail ? 0 : undefined}
+          onKeyDown={(e) => onOpenDetail && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpenDetail(product, 0))}
+          title="לחץ לצפייה בפרטי המוצר"
+        >
           {product.name}
         </h3>
         {product.tags && product.tags.length > 0 && (
@@ -1814,8 +1962,9 @@ function ProductCard({ product, onWhatsApp, onShare, onLightboxOpen, onLightboxC
               <button
                 key={idx}
                 type="button"
-                onClick={openLightbox(idx + 1)}
-                className="w-10 h-10 rounded border border-gray-200 overflow-hidden shrink-0 hover:ring-2 hover:ring-orange-400 transition"
+                onClick={openDetail(idx + 1)}
+                className="w-10 h-10 rounded border border-gray-200 overflow-hidden shrink-0 hover:ring-2 hover:ring-orange-400 transition focus:ring-2 focus:ring-[#1e3a5f] focus:ring-offset-1"
+                title="לחץ לצפייה בפרטי המוצר"
               >
                 <img
                   src={img}
@@ -1826,7 +1975,7 @@ function ProductCard({ product, onWhatsApp, onShare, onLightboxOpen, onLightboxC
             ))}
           </div>
         )}
-        <div className="mt-auto pt-4 flex justify-between items-center gap-2">
+        <div className="mt-auto pt-4 flex flex-wrap gap-2 justify-between items-center">
           {product.price != null && product.price !== "" && (
             <div className="text-[#1e3a5f] font-extrabold text-xl">
               ₪{formatPrice(product.price)}
@@ -1842,18 +1991,10 @@ function ProductCard({ product, onWhatsApp, onShare, onLightboxOpen, onLightboxC
             className="px-4 py-2.5 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 flex items-center gap-1.5 shrink-0"
           >
             <MessageCircle size={16} />
-            פרטים בוואטסאפ
+            לפרטים
           </button>
         </div>
       </div>
-      {lightboxOpen && (
-        <ProductImageLightbox
-          product={product}
-          images={images}
-          startIndex={lightboxStartIndex}
-          onClose={closeLightbox}
-        />
-      )}
     </div>
   );
 }
