@@ -21,7 +21,71 @@ function isAllowedAdmin(email) {
   if (!email || typeof email !== "string") return false;
   return ALLOWED_ADMIN_EMAILS.some((e) => e.toLowerCase() === email.trim().toLowerCase());
 }
+// דומיין ראשי לאתר (ריק = לא בודקים). אם נכנסים מכתובת אחרת – תוצג אזהרה.
+const MAIN_ADMIN_DOMAIN = "b-phone.netlify.app"; // לדוגמה: "bphone.co.il" או "your-site.netlify.app"
+function getLoginErrorHebrew(code, message) {
+  const t = {
+    "auth/invalid-credential": "פרטי התחברות לא נכונים. האימייל או הסיסמה שגויים, או שאין משתמש רשום עם אימייל זה.",
+    "auth/invalid-email": "כתובת האימייל לא תקינה. בדוק את פורמט האימייל.",
+    "auth/user-disabled": "חשבון המשתמש הושבת. פנה למנהל המערכת.",
+    "auth/user-not-found": "לא נמצא משתמש עם אימייל זה במערכת.",
+    "auth/wrong-password": "הסיסמה שגויה. האימייל תקין – נסה סיסמה אחרת.",
+    "auth/too-many-requests": "ניסיונות התחברות רבים מדי. נסה שוב מאוחר יותר או איפוס סיסמה.",
+    "auth/network-request-failed": "שגיאת רשת. בדוק את החיבור לאינטרנט ונסה שוב.",
+    "auth/popup-closed-by-user": "ההתחברות עם Google בוטלה (החלון נסגר).",
+    "auth/popup-blocked": "הדפדפן חסם את חלון Google. אשר חלונות קופצים לאתר.",
+    "auth/operation-not-allowed": "שיטת ההתחברות הזו לא מופעלת בהגדרות הפרויקט.",
+    "auth/weak-password": "הסיסמה חלשה מדי (נדרשת לפחות 6 תווים).",
+    "auth/email-already-in-use": "האימייל כבר רשום במערכת.",
+    "auth/requires-recent-login": "נדרשת התחברות מחדש מסיבות אבטחה.",
+  };
+  if (t[code]) return t[code];
+  return message ? `${code}: ${message}` : `שגיאת התחברות: ${code}`;
+}
 const IMGBB_API_KEY = typeof window !== "undefined" && window.IMGBB_API_KEY ? window.IMGBB_API_KEY : "";
+// אותו API של ביביפ בוט – Gemini דרך Cloudflare Worker (מוגדר ב-admin.html כמו ב-index.html)
+const GEMINI_PROXY_URL = typeof window !== "undefined" && window.GEMINI_PROXY_URL ? window.GEMINI_PROXY_URL : "";
+
+async function callGeminiAdmin(prompt, systemInstruction) {
+  if (!GEMINI_PROXY_URL) throw new Error("לא הוגדר GEMINI_PROXY_URL");
+  const res = await fetch(GEMINI_PROXY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, systemInstruction }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data.text || "";
+}
+
+/** משתמש באותו Gemini של ביביפ בוט – מחזיר המלצות למוצר (תיאור, תגית, תגיות) בסגנון ביפון */
+async function suggestProductWithAI(productName) {
+  if (!GEMINI_PROXY_URL || !productName || !String(productName).trim()) return null;
+  const name = String(productName).trim();
+  const systemInstruction = `אתה עוזר לחנות ביפון תקשורת סלולרית – סניפים בבית שמש וביתר. תחזיר רק JSON תקני, בלי טקסט לפני או אחרי.
+סגנון התיאורים: משפט פתיחה על המוצר, שורות עם ✔️ או ✅ (ביצועים, מסך, מצלמה, נפח אחסון). לסיים ב"זמין במבחר צבעים" אם מתאים.
+תגית מבצע: קצר – "מבצע חם!", "יחידה אחרונה במלאי", "במחיר מיוחד".
+תגיות: מותג, דגם, נפח, מופרדות בפסיק.`;
+  const prompt = `המוצר/מכשיר: "${name}". החזר JSON עם המפתחות בלבד (עברית): description (תיאור שיווקי עם ✔️), badge (תגית מבצע קצרה), tags (מחרוזת תגיות בפסיקים), priceSuggestion (מספר או null).`;
+  try {
+    const raw = await callGeminiAdmin(prompt, systemInstruction);
+    const jsonMatch = (raw || "").match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    if (parsed && typeof parsed.description === "string") {
+      return {
+        description: parsed.description,
+        badge: typeof parsed.badge === "string" ? parsed.badge : "",
+        tagsText: Array.isArray(parsed.tags) ? parsed.tags.join(", ") : (parsed.tags || ""),
+        priceSuggestion: typeof parsed.priceSuggestion === "number" ? parsed.priceSuggestion : null,
+      };
+    }
+    return null;
+  } catch (e) {
+    console.warn("AI suggestion failed", e);
+    throw e;
+  }
+}
+
 async function uploadImageToImgBB(file, retries = 2) {
   if (!IMGBB_API_KEY) return null;
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -85,22 +149,33 @@ const PROVIDER_LOGO_PRESETS = [
 ];
 
 // --- Login ---
-function LoginScreen({ onLogin, onLoginGoogle, showToast }) {
+function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearInitialError }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const auth = getAuth();
   const useFirebase = Boolean(auth);
 
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const isLocalDev = hostname === "localhost" || hostname === "127.0.0.1";
+  const mainDomain = MAIN_ADMIN_DOMAIN && MAIN_ADMIN_DOMAIN.trim();
+  const isWrongDomain = mainDomain && hostname !== mainDomain && !hostname.endsWith("." + mainDomain);
+  const displayError = initialError || error;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     if (email === "bp0527151000@gmail.com" && password === "123456") {
       onLogin();
       return;
     }
     if (!useFirebase) {
       if (password === "1234") onLogin();
-      else if (showToast) showToast("סיסמה שגויה", "error");
+      else {
+        setError("הסיסמה שגויה. נסה שוב או וודא שאתה משתמש בסיסמת הגישה הנכונה.");
+        if (showToast) showToast("סיסמה שגויה", "error");
+      }
       return;
     }
     setLoading(true);
@@ -109,7 +184,9 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast }) {
       onLogin();
     } catch (err) {
       setLoading(false);
-      if (showToast) showToast(err.code === "auth/invalid-credential" ? "אימייל או סיסמה שגויים" : "התחברות נכשלה", "error");
+      const msg = getLoginErrorHebrew(err.code || "", err.message || "");
+      setError(msg);
+      if (showToast) showToast(msg, "error");
     }
   };
 
@@ -120,14 +197,33 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast }) {
           <h1 className="text-3xl font-bold text-slate-800">פאנל ניהול B-Phone</h1>
           <p className="text-slate-500 mt-1">התחבר כדי להמשיך</p>
         </div>
+
+        {isLocalDev && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+            <strong>סביבת פיתוח:</strong> אתה נכנס מכתובת מקומית (localhost). לניהול האתר במצב לייב יש להיכנס מהדומיין הראשי של האתר.
+          </div>
+        )}
+        {isWrongDomain && (
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
+            <strong>דומיין לא ראשי:</strong> אתה לא נמצא בכתובת האתר הרשמית ({mainDomain}). וודא שאתה נכנס מכתובת האתר הנכונה כדי להבטיח גישה מלאה.
+          </div>
+        )}
+
+        {displayError && (
+          <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm" role="alert">
+            <strong>בעיה בהתחברות:</strong>
+            <p className="mt-1">{displayError}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">אימייל</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded-lg p-3" placeholder="admin@example.com" required autoFocus={!useFirebase} />
+            <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); if (onClearInitialError) onClearInitialError(); }} className="w-full border rounded-lg p-3" placeholder="admin@example.com" required autoFocus={!useFirebase} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">סיסמה</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border rounded-lg p-3" placeholder="••••••" required />
+            <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(""); if (onClearInitialError) onClearInitialError(); }} className="w-full border rounded-lg p-3" placeholder="••••••" required />
           </div>
           <button type="submit" disabled={loading} className="w-full bg-[#1e3a5f] text-white py-3 rounded-lg font-bold hover:bg-[#2a4a6f] transition disabled:opacity-60">
             {loading ? "מתחבר..." : "כניסה"}
@@ -176,7 +272,9 @@ function AdminApp() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] = useState(() => {
+    try { return sessionStorage.getItem("adminSection") || "dashboard"; } catch { return "dashboard"; }
+  });
   const [toast, setToast] = useState(null);
   const [siteConfig, setSiteConfig] = useState(DEFAULT_CONFIG);
   const [packages, setPackages] = useState([]);
@@ -184,6 +282,7 @@ function AdminApp() {
   const [promoMessage, setPromoMessage] = useState({ title: "מבצעי השקה!", subtitle: "הצטרפו היום", active: true });
   const [packageToDelete, setPackageToDelete] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [loginErrorMessage, setLoginErrorMessage] = useState(null);
 
   const showToast = (msg, type = "info") => {
     setToast({ message: msg, type });
@@ -196,13 +295,27 @@ function AdminApp() {
       setLoading(false);
       return () => {};
     }
-    const unsub = auth.onAuthStateChanged((user) => {
-      setLoading(false);
-      if (!user) { setLoggedIn(false); return; }
-      if (!isAllowedAdmin(user.email)) { auth.signOut(); setLoggedIn(false); return; }
-      setLoggedIn(true);
-    });
-    return unsub;
+    let unsub = () => {};
+    const run = async () => {
+      const Persistence = window.firebase?.auth?.Auth?.Persistence;
+      if (Persistence?.LOCAL) {
+        try { await auth.setPersistence(Persistence.LOCAL); } catch (_) {}
+      }
+      unsub = auth.onAuthStateChanged((user) => {
+        setLoading(false);
+        if (!user) { setLoggedIn(false); setLoginErrorMessage(null); return; }
+        if (!isAllowedAdmin(user.email)) {
+          auth.signOut();
+          setLoggedIn(false);
+          setLoginErrorMessage("האימייל שלך לא מורשה לגשת לפאנל ניהול. רק כתובות מהרשימת המנהלים יכולות להיכנס. אם אתה מנהל – וודא שהתחברת עם המייל הנכון.");
+          return;
+        }
+        setLoginErrorMessage(null);
+        setLoggedIn(true);
+      });
+    };
+    run();
+    return () => { unsub(); };
   }, []);
 
   useEffect(() => {
@@ -226,6 +339,10 @@ function AdminApp() {
     }).catch(console.warn);
   }, [loggedIn]);
 
+  useEffect(() => {
+    try { sessionStorage.setItem("adminSection", activeSection); } catch (_) {}
+  }, [activeSection]);
+
   const handleLogin = () => {
     setLoggedIn(true);
     showToast("התחברת בהצלחה", "success");
@@ -233,13 +350,31 @@ function AdminApp() {
   const handleLoginGoogle = () => {
     const auth = getAuth();
     if (!auth || !window.firebase?.auth?.GoogleAuthProvider) return;
-    auth.signInWithPopup(new window.firebase.auth.GoogleAuthProvider())
-      .then((cred) => {
-        if (!cred?.user || !isAllowedAdmin(cred.user.email)) { auth.signOut(); return; }
-        setLoggedIn(true);
-        showToast("התחברת בהצלחה", "success");
-      })
-      .catch((e) => { if (e.code !== "auth/popup-closed-by-user") showToast("התחברות נכשלה", "error"); });
+    const Persistence = window.firebase?.auth?.Auth?.Persistence;
+    const setPersistenceThenSignIn = () => {
+      if (Persistence?.LOCAL) {
+        auth.setPersistence(Persistence.LOCAL).then(() => auth.signInWithPopup(new window.firebase.auth.GoogleAuthProvider())).then(handleGoogleSuccess).catch(handleGoogleError);
+      } else {
+        auth.signInWithPopup(new window.firebase.auth.GoogleAuthProvider()).then(handleGoogleSuccess).catch(handleGoogleError);
+      }
+    };
+    const handleGoogleSuccess = (cred) => {
+      if (!cred?.user || !isAllowedAdmin(cred.user.email)) {
+        auth.signOut();
+        setLoginErrorMessage("האימייל שלך לא מורשה לגשת לפאנל ניהול. רק כתובות מהרשימת המנהלים יכולות להיכנס.");
+        return;
+      }
+      setLoginErrorMessage(null);
+      setLoggedIn(true);
+      showToast("התחברת בהצלחה", "success");
+    };
+    const handleGoogleError = (e) => {
+      if (e.code === "auth/popup-closed-by-user") return;
+      const msg = getLoginErrorHebrew(e.code || "", e.message || "");
+      setLoginErrorMessage(msg);
+      showToast(msg, "error");
+    };
+    setPersistenceThenSignIn();
   };
   const handleLogout = () => {
     const auth = getAuth();
@@ -249,7 +384,7 @@ function AdminApp() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><div className="animate-pulse text-slate-500">טוען...</div></div>;
-  if (!loggedIn) return <LoginScreen onLogin={handleLogin} onLoginGoogle={handleLoginGoogle} showToast={showToast} />;
+  if (!loggedIn) return <LoginScreen onLogin={handleLogin} onLoginGoogle={handleLoginGoogle} showToast={showToast} initialError={loginErrorMessage} onClearInitialError={() => setLoginErrorMessage(null)} />;
 
   const navItems = [
     { id: "dashboard", label: "סקירה", icon: Layout },
@@ -873,15 +1008,49 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
           </div>
         ))}
       </div>
-      {showForm && <ProductFormModal key={editing?.id ?? "new"} product={editing} onSave={(data) => { saveProduct(data); setEditing(null); setShowForm(false); }} onClose={() => { setEditing(null); setShowForm(false); }} />}
+      {showForm && <ProductFormModal key={editing?.id ?? "new"} product={editing} onSave={(data) => { saveProduct(data); setEditing(null); setShowForm(false); }} onClose={() => { setEditing(null); setShowForm(false); }} showToast={showToast} />}
     </div>
   );
 }
 
-function ProductFormModal({ product, onSave, onClose }) {
+function ProductFormModal({ product, onSave, onClose, showToast }) {
   const [form, setForm] = useState(product ? { ...product, imagesText: (product.images || []).join("\n"), tagsText: (product.tags || []).join(", ") } : { name: "", price: "", imagesText: "", description: "", tagsText: "", badge: "" });
   const [newFiles, setNewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAiSuggest = async () => {
+    const name = (form.name || "").trim();
+    if (!name) {
+      if (showToast) showToast("הזן קודם את שם המוצר / דגם המכשיר", "error");
+      return;
+    }
+    if (!GEMINI_PROXY_URL) {
+      if (showToast) showToast("לא הוגדר GEMINI_PROXY_URL. הוסף את כתובת ביביפ בוט (כמו ב-index.html) ב-admin.html.", "error");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const suggested = await suggestProductWithAI(name);
+      if (suggested) {
+        setForm((f) => ({
+          ...f,
+          description: suggested.description || f.description,
+          badge: suggested.badge || f.badge,
+          tagsText: suggested.tagsText || f.tagsText,
+          price: (f.price !== "" && f.price != null) ? f.price : (suggested.priceSuggestion != null ? String(suggested.priceSuggestion) : f.price),
+        }));
+        if (showToast) showToast("המידע הושלם לפי המלצת AI – ערוך אם צריך", "success");
+      } else {
+        if (showToast) showToast("לא התקבלה תשובה מתאימה מ-AI. נסה שוב או מלא ידנית.", "error");
+      }
+    } catch (err) {
+      const msg = err?.message || "שגיאה בהמלצת AI";
+      if (showToast) showToast(msg, "error");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     const images = form.imagesText ? form.imagesText.split("\n").map((l) => l.trim()).filter(Boolean) : [];
@@ -901,8 +1070,13 @@ function ProductFormModal({ product, onSave, onClose }) {
         <div className="space-y-5">
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">שם המוצר / המכשיר (חובה)</label>
-            <p className="text-xs text-slate-500 mb-2">לדוג׳: iPhone 15, Samsung Galaxy S24, תיקון מסך</p>
-            <input value={form.name || ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3 text-base" placeholder="שם המוצר" required />
+            <p className="text-xs text-slate-500 mb-2">לדוג׳: iPhone 15, Samsung Galaxy S24, תיקון מסך. אחרי הזנת הדגם – לחץ &quot;המלצת AI&quot; למילוי אוטומטי.</p>
+            <div className="flex gap-2 flex-wrap">
+              <input value={form.name || ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="flex-1 min-w-[200px] border-2 border-slate-200 rounded-lg p-3 text-base" placeholder="שם המוצר" required />
+              <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !GEMINI_PROXY_URL} className="shrink-0 px-4 py-3 rounded-lg font-bold border-2 border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" title={GEMINI_PROXY_URL ? "מלא תיאור, תגית ותגיות לפי דגם המוצר (אותו AI של ביביפ)" : "הוסף GEMINI_PROXY_URL ב-admin.html כמו ב-index.html"}>
+                {aiLoading ? "ממלא..." : "✨ המלצת AI"}
+              </button>
+            </div>
           </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">מחיר (₪)</label>
