@@ -140,6 +140,8 @@ const DEFAULT_SITE_TEXTS = {
   btnAllProducts: "לכל המוצרים",
   btnAllPackages: "לכל החבילות",
   btnFindBranch: "מצא סניף קרוב",
+  btnShowMoreProducts: "הצג עוד מוצרים",
+  btnShowMorePackages: "הראה עוד",
 };
 const DEFAULT_SECTION_VISIBILITY = { featured: true, products: true, packages: true, services: true, locations: true };
 
@@ -944,6 +946,8 @@ function SettingsSection({ config, onSave, showToast }) {
             <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „לכל המוצרים” (באזור המבצעים)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnAllProducts || ""} onChange={(e) => setText("btnAllProducts", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="לכל המוצרים" /></div>
             <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „לכל החבילות” (באזור המבצעים)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnAllPackages || ""} onChange={(e) => setText("btnAllPackages", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="לכל החבילות" /></div>
             <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „מצא סניף” (בראש העמוד)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnFindBranch || ""} onChange={(e) => setText("btnFindBranch", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="מצא סניף קרוב" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „הצג עוד מוצרים” (באזור המוצרים)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnShowMoreProducts || ""} onChange={(e) => setText("btnShowMoreProducts", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="הצג עוד מוצרים" /></div>
+            <div><label className="block text-sm font-bold text-slate-700 mb-1">כפתור „הראה עוד” (באזור החבילות)</label><p className="text-xs text-slate-500 mb-1">ריק = הכפתור לא יופיע</p><input value={texts.btnShowMorePackages || ""} onChange={(e) => setText("btnShowMorePackages", e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="הראה עוד" /></div>
           </div>
         </div>
 

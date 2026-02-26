@@ -219,6 +219,8 @@ const DEFAULT_SITE_TEXTS = {
   btnAllProducts: "לכל המוצרים",
   btnAllPackages: "לכל החבילות",
   btnFindBranch: "מצא סניף קרוב",
+  btnShowMoreProducts: "הצג עוד מוצרים",
+  btnShowMorePackages: "הראה עוד",
 };
 const DEFAULT_SECTION_VISIBILITY = { featured: true, products: true, packages: true, services: true, locations: true };
 
@@ -1103,14 +1105,14 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                   </div>
                 ))}
               </div>
-              {hasMoreProducts && (
+              {hasMoreProducts && ((t.btnShowMoreProducts ?? "").trim() || isEditMode) && (
                 <div className="text-center mt-8">
                   <button
                     type="button"
                     onClick={() => setProductsVisibleCount((c) => c + 6)}
                     className="px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition"
                   >
-                    הצג עוד מוצרים
+                    <EditableText type="siteTexts" editKey="btnShowMoreProducts" value={t.btnShowMoreProducts} placeholder="הצג עוד מוצרים" />
                   </button>
                 </div>
               )}
@@ -1285,13 +1287,13 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
                 );
               })}
             </div>
-            {hasMorePackages && (
+            {hasMorePackages && ((t.btnShowMorePackages ?? "").trim() || isEditMode) && (
               <div className="mt-8 text-center">
                 <button
                   onClick={() => setPackagesVisibleCount(filteredPackages.length)}
                   className="px-8 py-4 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold transition shadow-md"
                 >
-                  הראה עוד
+                  <EditableText type="siteTexts" editKey="btnShowMorePackages" value={t.btnShowMorePackages} placeholder="הראה עוד" />
                 </button>
               </div>
             )}
