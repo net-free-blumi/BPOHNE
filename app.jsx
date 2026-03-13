@@ -632,12 +632,17 @@ function App() {
       .finally(() => setLoading(false));
   }, []);
 
-  const buildWhatsAppUrlForItem = (pkg) => {
+  const getWhatsAppNumber = () => {
     const phone = siteConfig.whatsapp || "0527151000";
     const normalized = phone.replace(/[^0-9]/g, "");
     const withoutLeadingZero = normalized.startsWith("0")
       ? normalized.slice(1)
       : normalized;
+    return withoutLeadingZero;
+  };
+
+  const buildWhatsAppUrlForItem = (pkg) => {
+    const withoutLeadingZero = getWhatsAppNumber();
 
     let text;
     if (pkg.category === "product") {
@@ -682,11 +687,15 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const productUrl = `${base}/product/${product.id || ""}`;
     const mainLine = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
-    const waUrl = buildWhatsAppUrlForItem({ ...product, category: "product" });
+    const waShortUrl = `https://wa.me/972${getWhatsAppNumber()}`;
+    const waUrl = waShortUrl;
     const fullText = `${mainLine}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waUrl}`;
     const shareData = { title: product.name || "מוצר מ-B-Phone", text: fullText };
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || "");
     try {
-      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      if (isMobile && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
         showMessage("המוצר שותף בהצלחה!", "success");
         return;
@@ -1389,48 +1398,115 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         <ArrowUp size={24} />
       </button>
 
-      {/* נגישות – מודל שנפתח מקישור בפוטר (לא צף, לא מפריע) */}
+      {/* נגישות – לוח גדול בתחתית המסך, עם כפתורים ברורים */}
       {accOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50"
           onClick={() => setAccOpen(false)}
           role="dialog"
           aria-label="הגדרות נגישות"
         >
           <div
-            className="bg-white rounded-xl shadow-xl border border-gray-200 p-5 w-full max-w-sm text-right"
+            className="w-full bg-[#061824] text-slate-50 border-t border-slate-700/70 rounded-t-3xl shadow-[0_-12px_40px_rgba(0,0,0,0.6)] max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-bold text-slate-800">הגדרות נגישות</span>
-              <button type="button" onClick={() => setAccOpen(false)} className="text-gray-500 hover:text-gray-700" aria-label="סגור">
-                <X size={20} />
+            <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-slate-700/60">
+              <div>
+                <p className="text-sm text-amber-400 font-semibold tracking-wide mb-0.5">תפריט נגישות</p>
+                <h2 className="text-lg font-bold">התאמת תצוגה לקריאה נוחה</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAccOpen(false)}
+                className="w-9 h-9 rounded-full bg-slate-800 text-slate-100 flex items-center justify-center hover:bg-slate-700"
+                aria-label="סגור נגישות"
+              >
+                <X size={18} />
               </button>
             </div>
-            <div className="space-y-4 text-sm">
-              <div>
-                <p className="font-medium text-slate-700 mb-2">גודל טקסט</p>
-                <div className="flex gap-2 flex-wrap">
-                  {["normal", "large", "x-large"].map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => setAccFontSize(size)}
-                      className={`px-3 py-2 rounded-lg border ${accFontSize === size ? "bg-blue-600 text-white border-blue-600" : "bg-gray-50 border-gray-200 hover:bg-gray-100"}`}
-                    >
-                      {size === "normal" ? "רגיל" : size === "large" ? "גדול" : "גדול מאוד"}
-                    </button>
-                  ))}
-                </div>
+
+            <div className="px-4 pb-4 pt-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setAccFontSize("large")}
+                  className={`flex flex-col items-center justify-center rounded-2xl px-3 py-3 border-2 ${
+                    accFontSize === "large"
+                      ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                      : "border-slate-600 bg-slate-800/60 hover:bg-slate-700/80"
+                  }`}
+                >
+                  <span className="text-xl font-bold mb-1">A+</span>
+                  <span>הגדלת טקסט</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccFontSize("x-large")}
+                  className={`flex flex-col items-center justify-center rounded-2xl px-3 py-3 border-2 ${
+                    accFontSize === "x-large"
+                      ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                      : "border-slate-600 bg-slate-800/60 hover:bg-slate-700/80"
+                  }`}
+                >
+                  <span className="text-2xl font-extrabold mb-1">A++</span>
+                  <span>טקסט ענק</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccFontSize("normal")}
+                  className={`flex flex-col items-center justify-center rounded-2xl px-3 py-3 border-2 ${
+                    accFontSize === "normal"
+                      ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                      : "border-slate-600 bg-slate-800/60 hover:bg-slate-700/80"
+                  }`}
+                >
+                  <span className="text-lg font-bold mb-1">A</span>
+                  <span>גודל רגיל</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAccContrast(!accContrast)}
+                  className={`flex flex-col items-center justify-center rounded-2xl px-3 py-3 border-2 ${
+                    accContrast
+                      ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                      : "border-slate-600 bg-slate-800/60 hover:bg-slate-700/80"
+                  }`}
+                >
+                  <span className="text-xl mb-1">◑</span>
+                  <span>ניגודיות גבוהה</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAccLinks(!accLinks)}
+                  className={`flex flex-col items-center justify-center rounded-2xl px-3 py-3 border-2 ${
+                    accLinks
+                      ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                      : "border-slate-600 bg-slate-800/60 hover:bg-slate-700/80"
+                  }`}
+                >
+                  <span className="text-xl mb-1">🔗</span>
+                  <span>הדגשת קישורים</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccFontSize("normal");
+                    setAccContrast(false);
+                    setAccLinks(false);
+                  }}
+                  className="col-span-2 md:col-span-2 flex flex-col items-center justify-center rounded-2xl px-3 py-3 border-2 border-red-500/70 text-red-200 bg-red-900/40 hover:bg-red-900/60"
+                >
+                  <span className="text-base font-bold mb-1">איפוס הגדרות</span>
+                  <span className="text-xs opacity-80">חזרה לברירת המחדל של האתר</span>
+                </button>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={accContrast} onChange={(e) => setAccContrast(e.target.checked)} className="rounded" />
-                <span>ניגודיות גבוהה</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={accLinks} onChange={(e) => setAccLinks(e.target.checked)} className="rounded" />
-                <span>הדגש קישורים</span>
-              </label>
+
+              <p className="text-[11px] text-slate-400 text-center">
+                הנגישות מופעלת בדפדפן שבו פתחת את האתר. ייתכן שחלק מהאפשרויות לא יפעלו בדפדפנים ישנים.
+              </p>
             </div>
           </div>
         </div>
