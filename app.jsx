@@ -691,12 +691,11 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
   const handleShareProduct = async (product) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const productUrl = `${base}/product/${product.id || ""}`;
+    const waShareUrl = `${base.replace(/\/$/, "")}/wa/${product.id || ""}`;
     const mainLine = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
-    const waFullUrl = buildWhatsAppUrlForItem({ ...product, category: "product" });
-    const waDisplayUrl = waFullUrl;
 
     const waText = buildWhatsAppTextForItem({ ...product, category: "product" });
-    const fullText = `${mainLine}\n\n${waText}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waDisplayUrl}`;
+    const fullText = `${mainLine}\n\n${waText}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waShareUrl}`;
     const shareData = { title: product.name || "מוצר מ-B-Phone", text: fullText };
     const isMobile =
       typeof navigator !== "undefined" &&
@@ -737,6 +736,20 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       setProductsVisibleCount((c) => Math.max(c, idx + 1));
     }
   }, [products, productHashId, productsVisibleCount]);
+
+  // קישור קצר לוואטסאפ: /wa/:id → טעינת המוצר ואז הפניה לוואטסאפ עם כל הטקסט
+  const waProductIdFromPath =
+    typeof window !== "undefined" && window.location.pathname.startsWith("/wa/")
+      ? window.location.pathname.split("/wa/")[1] || null
+      : null;
+  const waRedirectDoneRef = React.useRef(false);
+  useEffect(() => {
+    if (!waProductIdFromPath || waRedirectDoneRef.current || products.length === 0) return;
+    const product = products.find((p) => p.id === waProductIdFromPath);
+    if (!product) return;
+    waRedirectDoneRef.current = true;
+    handleWhatsAppClick({ ...product, category: "product" });
+  }, [products, waProductIdFromPath]);
   useEffect(() => {
     if (!productHashId) return;
     const tryScroll = (attempt = 0) => {
