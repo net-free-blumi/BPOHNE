@@ -691,7 +691,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
   const handleShareProduct = async (product) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const productUrl = `${base}/product/${product.id || ""}`;
-    const waShareUrl = `${base.replace(/\/$/, "")}/wa/${product.id || ""}`;
+    const waShareUrl = `${base.replace(/\/$/, "")}/?wa=${encodeURIComponent(product.id || "")}`;
     const mainLine = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
 
     const waText = buildWhatsAppTextForItem({ ...product, category: "product" });
@@ -737,19 +737,19 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     }
   }, [products, productHashId, productsVisibleCount]);
 
-  // קישור קצר לוואטסאפ: /wa/:id → טעינת המוצר ואז הפניה לוואטסאפ עם כל הטקסט
-  const waProductIdFromPath =
-    typeof window !== "undefined" && window.location.pathname.startsWith("/wa/")
-      ? window.location.pathname.split("/wa/")[1] || null
+  // קישור קצר לוואטסאפ: ?wa=:id → טעינת המוצר ואז הפניה לוואטסאפ עם כל הטקסט
+  const waProductIdFromQuery =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("wa")
       : null;
   const waRedirectDoneRef = React.useRef(false);
   useEffect(() => {
-    if (!waProductIdFromPath || waRedirectDoneRef.current || products.length === 0) return;
-    const product = products.find((p) => p.id === waProductIdFromPath);
+    if (!waProductIdFromQuery || waRedirectDoneRef.current || products.length === 0) return;
+    const product = products.find((p) => p.id === waProductIdFromQuery);
     if (!product) return;
     waRedirectDoneRef.current = true;
     handleWhatsAppClick({ ...product, category: "product" });
-  }, [products, waProductIdFromPath]);
+  }, [products, waProductIdFromQuery]);
   useEffect(() => {
     if (!productHashId) return;
     const tryScroll = (attempt = 0) => {
