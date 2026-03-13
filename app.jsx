@@ -641,9 +641,7 @@ function App() {
     return withoutLeadingZero;
   };
 
-  const buildWhatsAppUrlForItem = (pkg) => {
-    const withoutLeadingZero = getWhatsAppNumber();
-
+  const buildWhatsAppTextForItem = (pkg) => {
     let text;
     if (pkg.category === "product") {
       // מוצר – שולחים את כל המידע מהתיבה
@@ -674,6 +672,12 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
 אשמח לקבל פרטים ולהצטרף!`;
     }
 
+    return text;
+  };
+
+  const buildWhatsAppUrlForItem = (pkg) => {
+    const withoutLeadingZero = getWhatsAppNumber();
+    const text = buildWhatsAppTextForItem(pkg);
     const url = `https://wa.me/972${withoutLeadingZero}?text=${encodeURIComponent(text)}`;
     return url;
   };
@@ -687,9 +691,24 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const productUrl = `${base}/product/${product.id || ""}`;
     const mainLine = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
-    const waShortUrl = `https://wa.me/972${getWhatsAppNumber()}`;
-    const waUrl = waShortUrl;
-    const fullText = `${mainLine}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waUrl}`;
+    const waFullUrl = buildWhatsAppUrlForItem({ ...product, category: "product" });
+
+    // ניסיון לקצר את קישור הוואטסאפ. אם נכשלים – נשתמש במלא.
+    let waDisplayUrl = waFullUrl;
+    try {
+      const res = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(waFullUrl)}`);
+      if (res.ok) {
+        const shortUrl = (await res.text()).trim();
+        if (shortUrl && shortUrl.startsWith("http")) {
+          waDisplayUrl = shortUrl;
+        }
+      }
+    } catch (_) {
+      // אם יש שגיאה – פשוט נשארים עם הקישור הארוך
+    }
+
+    const waText = buildWhatsAppTextForItem({ ...product, category: "product" });
+    const fullText = `${mainLine}\n\n${waText}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waDisplayUrl}`;
     const shareData = { title: product.name || "מוצר מ-B-Phone", text: fullText };
     const isMobile =
       typeof navigator !== "undefined" &&
