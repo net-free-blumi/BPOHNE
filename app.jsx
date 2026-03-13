@@ -498,6 +498,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showAiAdvisor, setShowAiAdvisor] = useState(false);
+  const [aiCollapsed, setAiCollapsed] = useState(false);
   const [productDetailOpen, setProductDetailOpen] = useState(null); // { product, startImageIndex } or null
   const [advisorMessages, setAdvisorMessages] = useState([INITIAL_ADVISOR_MESSAGE]);
   const [accOpen, setAccOpen] = useState(false);
@@ -1564,31 +1565,54 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
 
       {typeof document !== "undefined" && document.body && window.ReactDOM && window.ReactDOM.createPortal(
         <>
-          {/* כפתור ביביפ – מוסתר כשהצ'אט פתוח או כשמוצר/לייטאבוקס פתוח */}
+          {/* כפתור ביביפ – מוסתר כשהצ'אט פתוח או כשמוצר פתוח; ניתן לכווץ לבועה קטנה */}
           {!showAiAdvisor && !productDetailOpen && (
             <div style={{ position: "fixed", bottom: "1.5rem", left: "1.5rem", zIndex: 99999, isolation: "isolate" }}>
-              <button
-                type="button"
-                onClick={() => setShowAiAdvisor(true)}
-                className={`relative flex items-center gap-2 px-4 py-3 rounded-2xl bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-105 transition-all border-2 border-white/30 overflow-visible ${siteConfig?.botLogoUrl ? "justify-center" : ""}`}
-                title="התייעץ עם ביביפ"
-                aria-label="התייעץ עם ביביפ"
-                style={{ minHeight: "48px", fontFamily: "'Rubik', sans-serif" }}
-              >
-                {siteConfig?.botLogoUrl ? (
-                  <>
-                    <span className="absolute right-0 bottom-full mb-0.5">
-                      <img src={siteConfig.botLogoUrl} alt="" className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-lg block" />
-                    </span>
-                    <span className="font-medium text-[0.95rem]">התייעץ עם ביביפ</span>
-                  </>
-                ) : (
-                  <>
-                    <Bot size={28} className="flex-shrink-0" />
-                    <span className="font-medium text-[0.95rem]">התייעץ עם ביביפ</span>
-                  </>
-                )}
-              </button>
+              {!aiCollapsed ? (
+                <div className="relative inline-flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowAiAdvisor(true)}
+                    className={`relative flex items-center gap-2 px-4 py-3 rounded-2xl bg-blue-600 text-white shadow-xl hover:bg-blue-700 hover:scale-105 transition-all border-2 border-white/30 overflow-visible ${siteConfig?.botLogoUrl ? "justify-center" : ""}`}
+                    title="התייעץ עם ביביפ"
+                    aria-label="התייעץ עם ביביפ"
+                    style={{ minHeight: "48px", fontFamily: "'Rubik', sans-serif" }}
+                  >
+                    {siteConfig?.botLogoUrl ? (
+                      <>
+                        <span className="absolute right-0 bottom-full mb-0.5">
+                          <img src={siteConfig.botLogoUrl} alt="" className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-lg block" />
+                        </span>
+                        <span className="font-medium text-[0.95rem]">התייעץ עם ביביפ</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bot size={28} className="flex-shrink-0" />
+                        <span className="font-medium text-[0.95rem]">התייעץ עם ביביפ</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiCollapsed(true)}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center text-xs hover:bg-black"
+                    aria-label="הקטן את ביביפ"
+                    title="הקטן את ביביפ"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowAiAdvisor(true)}
+                  className="w-11 h-11 rounded-full bg-blue-600 text-white shadow-lg border-2 border-white/40 flex items-center justify-center hover:bg-blue-700 hover:scale-110 transition-all"
+                  aria-label="פתח את ביביפ"
+                  title="פתח את ביביפ"
+                >
+                  <Bot size={22} />
+                </button>
+              )}
             </div>
           )}
           {showAiAdvisor && (
