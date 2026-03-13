@@ -242,14 +242,14 @@ const DEFAULT_CONFIG = {
       city: "בית שמש",
       address: "רחוב יצחק רבין 17, בית שמש",
       phone: "052-7151000",
-      hours: "א'-ה': 10:00 - 21:00\nו' וערבי חג: 10:00 - 13:00",
+      hours: "א'-ה': 10:00 - 21:00\nימי ו' וערבי חג:\nחורף 10:00 - 13:00\nקיץ 10:00 - 14:00",
     },
     {
       id: "beitar",
       city: "ביתר עילית",
       address: "המגיד ממעזריטש 71, ביתר עילית",
       phone: "02-9911213",
-      hours: "א'-ה': 10:00 - 21:00\nו': 10:00 - 13:00",
+      hours: "א'-ה': 10:00 - 21:00\nימי ו' וערבי חג:\nחורף 10:00 - 12:30\nקיץ 10:00 - 13:00",
     },
   ],
   // שירותים מותאמים: תיקון מכשירים/מחשבים וסינונים כשרים
@@ -632,7 +632,7 @@ function App() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleWhatsAppClick = (pkg) => {
+  const buildWhatsAppUrlForItem = (pkg) => {
     const phone = siteConfig.whatsapp || "0527151000";
     const normalized = phone.replace(/[^0-9]/g, "");
     const withoutLeadingZero = normalized.startsWith("0")
@@ -670,14 +670,21 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     }
 
     const url = `https://wa.me/972${withoutLeadingZero}?text=${encodeURIComponent(text)}`;
+    return url;
+  };
+
+  const handleWhatsAppClick = (pkg) => {
+    const url = buildWhatsAppUrlForItem(pkg);
     window.open(url, "_blank");
   };
 
   const handleShareProduct = async (product) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const productUrl = `${base}/product/${product.id || ""}`;
-    const shareText = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
-    const shareData = { title: product.name || "מוצר מ-B-Phone", text: shareText, url: productUrl };
+    const mainLine = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
+    const waUrl = buildWhatsAppUrlForItem({ ...product, category: "product" });
+    const fullText = `${mainLine}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waUrl}`;
+    const shareData = { title: product.name || "מוצר מ-B-Phone", text: fullText };
     try {
       if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData);
@@ -688,10 +695,10 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       if (e.name === "AbortError") return;
     }
     try {
-      await navigator.clipboard.writeText(`${shareText}\n${productUrl}`);
+      await navigator.clipboard.writeText(fullText);
       showMessage("הקישור הועתק להדבקה!", "success");
     } catch {
-      const fallback = `${shareText}\n${productUrl}`;
+      const fallback = fullText;
       const ta = document.createElement("textarea");
       ta.value = fallback;
       ta.style.position = "fixed";
@@ -1622,38 +1629,58 @@ function LocationCard({ city, address, hours, phone }) {
   const wazeUrl = wazeQuery
     ? `https://www.waze.com/ul?q=${encodeURIComponent(wazeQuery)}`
     : "https://www.waze.com";
+  const mapsQuery = [address, city].filter(Boolean).join(", ");
+  const mapsSearchUrl = mapsQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`
+    : "https://www.google.com/maps";
+  const mapsEmbedUrl = mapsQuery
+    ? `https://www.google.com/maps?q=${encodeURIComponent(mapsQuery)}&output=embed`
+    : "";
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-blue-600 h-full flex flex-col">
-      <div className="flex items-center gap-3 mb-6">
-        <MapPin className="text-blue-600" />
-        <h3 className="text-2xl font-bold">{city}</h3>
-      </div>
-
-      <div className="space-y-4 text-gray-600 flex-grow">
-        <p className="flex items-start gap-3">
-          <span className="font-bold min-w-[60px]">כתובת:</span>
-          {address}
-        </p>
-        <div className="flex items-start gap-3">
-          <Clock className="w-5 h-5 mt-1 text-gray-400" />
-          <div>
-            <p className="font-bold text-slate-900 mb-1">שעות פתיחה:</p>
-            <div className="whitespace-pre-wrap">{hours}</div>
-          </div>
+    <div className="bg-white rounded-2xl shadow-lg border-t-4 border-blue-600 h-full flex flex-col overflow-hidden">
+      {mapsEmbedUrl && (
+        <div className="w-full aspect-square max-h-72 bg-slate-100">
+          <iframe
+            src={mapsEmbedUrl}
+            title={`מיקום החנות ${city}`}
+            className="w-full h-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
         </div>
-        <p className="flex items-center gap-3 pt-4 border-t border-gray-100">
-          <Phone className="w-5 h-5 text-gray-400" />
-          <a
-            href={`tel:${phone}`}
-            className="font-bold text-xl text-blue-600 hover:underline"
-          >
-            {phone}
-          </a>
-        </p>
+      )}
+      <div className="p-8 flex flex-col flex-1">
+        <div className="flex items-center gap-3 mb-6">
+          <MapPin className="text-blue-600" />
+          <h3 className="text-2xl font-bold">{city}</h3>
+        </div>
+
+        <div className="space-y-4 text-gray-600 flex-grow">
+          <p className="flex items-start gap-3">
+            <span className="font-bold min-w-[60px]">כתובת:</span>
+            {address}
+          </p>
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 mt-1 text-gray-400" />
+            <div>
+              <p className="font-bold text-slate-900 mb-1">שעות פתיחה:</p>
+              <div className="whitespace-pre-wrap">{hours}</div>
+            </div>
+          </div>
+          <p className="flex items-center gap-3 pt-4 border-t border-gray-100">
+            <Phone className="w-5 h-5 text-gray-400" />
+            <a
+              href={`tel:${phone}`}
+              className="font-bold text-xl text-blue-600 hover:underline"
+            >
+              {phone}
+            </a>
+          </p>
+        </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="px-8 pb-6 flex flex-col sm:flex-row gap-3">
         <a
           href={wazeUrl}
           target="_blank"
@@ -1661,6 +1688,14 @@ function LocationCard({ city, address, hours, phone }) {
           className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition text-center"
         >
           נווט ב-Waze
+        </a>
+        <a
+          href={mapsSearchUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 bg-white text-blue-700 border border-blue-600 py-2 rounded-lg font-medium hover:bg-blue-50 transition text-center"
+        >
+          פתח בגוגל מפות
         </a>
       </div>
     </div>
