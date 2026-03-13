@@ -487,6 +487,7 @@ function App() {
   const [siteConfig, setSiteConfig] = useState(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [packagesVisibleCount, setPackagesVisibleCount] = useState(3);
   const [productsVisibleCount, setProductsVisibleCount] = useState(6);
   const [promoMessage, setPromoMessage] = useState({
@@ -643,36 +644,25 @@ function App() {
   };
 
   const buildWhatsAppTextForItem = (pkg) => {
-    let text;
-    if (pkg.category === "product") {
-      // מוצר – שולחים את כל המידע מהתיבה
-      const name = pkg.name || pkg.provider || "מוצר";
-      const priceLine = pkg.price != null && pkg.price !== "" ? `*מחיר:* ${pkg.price} ₪` : "";
-      const descLine = pkg.description && String(pkg.description).trim() ? `\n*תיאור:*\n${String(pkg.description).trim()}` : "";
-      const tagsLine = pkg.tags && Array.isArray(pkg.tags) && pkg.tags.length > 0
-        ? `\n*תגיות:* ${pkg.tags.join(", ")}`
+    const sku = (pkg.sku || "").toString().trim();
+    const name = pkg.name || pkg.providerName || pkg.provider || "מוצר";
+    const pricePart =
+      pkg.price != null && pkg.price !== ""
+        ? `${formatPrice(pkg.price)} ₪`
         : "";
-      text = `היי B-Phone, אני מתעניין במוצר הבא מהאתר:
------------------------
-*שם המוצר:* ${name}
-${priceLine}${descLine}${tagsLine}
------------------------
-אשמח לקבל פרטים ולהזמין!`;
+
+    let line;
+    if (pkg.category === "product") {
+      line = `אשמח למידע/רכישה על מוצר${sku ? ` מק״ט ${sku}` : ""} – ${name}${pricePart ? ` (${pricePart})` : ""}.`;
     } else {
-      // חבילה סלולר
-      const name = pkg.providerName || pkg.provider;
-      const detail = pkg.priceDetail ? `\n*פירוט:* ${pkg.priceDetail}` : "";
-      const categoryLabel = pkg.category === "kosher" ? "כשר" : pkg.category === "internet" ? "אינטרנט ביתי" : pkg.category;
-      text = `היי B-Phone, אני מעוניין להצטרף לתוכנית הבאה:
------------------------
-*ספק:* ${name}
-*מחיר:* ${pkg.price} ₪${detail}
-*קטגוריה:* ${categoryLabel}
-${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join("\n")}` : ""}
------------------------
-אשמח לקבל פרטים ולהצטרף!`;
+      const kind =
+        pkg.category === "internet"
+          ? "חבילת אינטרנט"
+          : "חבילת סלולר";
+      line = `אשמח למידע/הצטרפות על ${kind}${sku ? ` מק״ט ${sku}` : ""} – ${name}${pricePart ? ` (${pricePart})` : ""}.`;
     }
 
+    const text = `היי B-Phone, הגעתי מהאתר.\n${line}`;
     return text;
   };
 
@@ -691,11 +681,11 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
   const handleShareProduct = async (product) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const productUrl = `${base}/product/${product.id || ""}`;
-    const waShareUrl = `${base.replace(/\/$/, "")}/?wa=${encodeURIComponent(product.id || "")}`;
     const mainLine = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
+    const waFullUrl = buildWhatsAppUrlForItem({ ...product, category: "product" });
 
     const waText = buildWhatsAppTextForItem({ ...product, category: "product" });
-    const fullText = `${mainLine}\n\n${waText}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waShareUrl}`;
+    const fullText = `${mainLine}\n\n${waText}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waFullUrl}`;
     const shareData = { title: product.name || "מוצר מ-B-Phone", text: fullText };
     const isMobile =
       typeof navigator !== "undefined" &&
@@ -737,19 +727,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     }
   }, [products, productHashId, productsVisibleCount]);
 
-  // קישור קצר לוואטסאפ: ?wa=:id → טעינת המוצר ואז הפניה לוואטסאפ עם כל הטקסט
-  const waProductIdFromQuery =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("wa")
-      : null;
-  const waRedirectDoneRef = React.useRef(false);
-  useEffect(() => {
-    if (!waProductIdFromQuery || waRedirectDoneRef.current || products.length === 0) return;
-    const product = products.find((p) => p.id === waProductIdFromQuery);
-    if (!product) return;
-    waRedirectDoneRef.current = true;
-    handleWhatsAppClick({ ...product, category: "product" });
-  }, [products, waProductIdFromQuery]);
+  // (שמירת תמיכה עתידית בקישורי וואטסאפ נעשית בצד הלקוח – אין קישורי קיצור דרך האתר כרגע)
   useEffect(() => {
     if (!productHashId) return;
     const tryScroll = (attempt = 0) => {
@@ -766,12 +744,13 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
   // --- מיפוי קטגוריה לטקסט לחיפוש ---
   const categoryToLabel = { all: "", kosher: "כשר", "4g": "דור 4", "5g": "דור 5", internet: "אינטרנט ביתי" };
 
-  // --- סינון חבילות (טאב + חיפוש חופשי: חברה, מחיר, סוג, כשר וכו') ---
+  // --- סינון חבילות (טאב + חיפוש חופשי: חברה, מחיר, סוג, כשר, מק״ט וכו') ---
   const filteredPackages = packages.filter((pkg) => {
     if (activeTab !== "all" && pkg.category !== activeTab) return false;
-    const q = (searchQuery || "").trim();
+    const q = (searchQuery || "").trim().toLowerCase();
     if (!q) return true;
     const searchable = [
+      pkg.sku,
       pkg.providerNameHe,
       pkg.providerName,
       pkg.provider,
@@ -783,19 +762,39 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
       pkg.extras || "",
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(" ")
+      .toLowerCase();
     return searchable.includes(q);
   });
 
-  const displayedPackages = filteredPackages.slice(0, packagesVisibleCount);
-  const hasMorePackages = filteredPackages.length > packagesVisibleCount;
+  const showAllFromSearch = (searchQuery || "").trim().length > 0;
+  const displayedPackages = showAllFromSearch ? filteredPackages : filteredPackages.slice(0, packagesVisibleCount);
+  const hasMorePackages = !showAllFromSearch && filteredPackages.length > packagesVisibleCount;
+
+  const filteredProducts = useMemo(() => {
+    const q = (searchQuery || "").trim().toLowerCase();
+    if (!q) return [...products];
+    return products.filter((p) => {
+      const searchable = [
+        p.sku,
+        p.name,
+        (p.tags || []).join(" "),
+        p.description,
+        String(p.price ?? ""),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(q);
+    });
+  }, [products, searchQuery]);
 
   const sortedProducts = useMemo(
-    () => [...products].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
-    [products]
+    () => [...filteredProducts].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
+    [filteredProducts]
   );
-  const displayedProducts = sortedProducts.slice(0, productsVisibleCount);
-  const hasMoreProducts = !isAdmin && sortedProducts.length > productsVisibleCount;
+  const displayedProducts = showAllFromSearch ? sortedProducts : sortedProducts.slice(0, productsVisibleCount);
+  const hasMoreProducts = !isAdmin && !showAllFromSearch && sortedProducts.length > productsVisibleCount;
 
   const featuredProducts = useMemo(() => sortedProducts.filter((p) => p.featured), [sortedProducts]);
   const featuredPackages = useMemo(
@@ -878,7 +877,15 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
               <a href="#locations" className="text-white/90 hover:text-orange-400 font-medium transition">
                 סניפים
               </a>
-
+              <button
+                type="button"
+                onClick={() => setSearchOpen((v) => !v)}
+                className="ml-4 flex items-center justify-center w-9 h-9 rounded-full border border-white/40 text-white hover:bg-white/10 hover:text-orange-300 transition"
+                title="חיפוש מוצרים וחבילות"
+                aria-label="חיפוש מוצרים וחבילות"
+              >
+                🔍
+              </button>
             </div>
 
             {/* Mobile menu button – לבן כדי שייראה על הרקע הכחול */}
@@ -911,6 +918,32 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
           </div>
         )}
       </nav>
+
+      {searchOpen && (
+        <div className="bg-slate-100 border-b border-slate-200 py-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="חיפוש לפי שם מוצר, חבילה או מק״ט..."
+                className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm sm:text-base text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-sm hover:bg-slate-300"
+                title="נקה חיפוש"
+                aria-label="נקה חיפוש"
+                disabled={!searchQuery.trim()}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero / באנר ביפון – גובה נמוך, רוחב מלא לראות את רוב התמונה */}
       <div
@@ -1894,13 +1927,18 @@ function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp,
           )}
           <div className="p-4 sm:p-6">
             {product.badge && (
-              <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-sm font-bold mb-3">
+              <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-sm font-bold mb-2">
                 {product.badge}
               </span>
             )}
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2 leading-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 leading-tight">
               {product.name}
             </h1>
+            {product.sku && (
+              <p className="text-xs text-slate-400 mb-3">
+                מק״ט: <span className="font-mono tracking-widest">{product.sku}</span>
+              </p>
+            )}
             {product.tags && product.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {product.tags.map((tag, idx) => (

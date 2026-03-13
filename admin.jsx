@@ -46,6 +46,11 @@ const IMGBB_API_KEY = typeof window !== "undefined" && window.IMGBB_API_KEY ? wi
 // אותו API של ביביפ בוט – Gemini דרך Cloudflare Worker (מוגדר ב-admin.html כמו ב-index.html)
 const GEMINI_PROXY_URL = typeof window !== "undefined" && window.GEMINI_PROXY_URL ? window.GEMINI_PROXY_URL : "";
 
+function generateSku(prefix) {
+  const num = Math.floor(1000 + Math.random() * 9000);
+  return (prefix || "") + String(num);
+}
+
 async function callGeminiAdmin(prompt, systemInstruction) {
   if (!GEMINI_PROXY_URL) throw new Error("לא הוגדר GEMINI_PROXY_URL");
   const res = await fetch(GEMINI_PROXY_URL, {
@@ -986,7 +991,7 @@ function PackagesSection({ packages, setPackages, onDeleteRequest, showToast }) 
   };
 
   const savePackage = (pkg) => {
-    const payload = { ...pkg }; delete payload.id;
+    const payload = { ...pkg, sku: (pkg.sku || "").toString().trim() || generateSku("K") }; delete payload.id;
     if (db && pkg.id && !String(pkg.id).startsWith("demo-")) {
       db.collection("packages").doc(pkg.id).update(payload)
         .then(() => { setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...pkg, id: p.id } : p))); showToast("עודכן", "success"); })
@@ -1100,13 +1105,13 @@ function PackagesSection({ packages, setPackages, onDeleteRequest, showToast }) 
 }
 
 function PackageFormModal({ pkg, onSave, onClose }) {
-  const [form, setForm] = useState(pkg || { provider: "", providerName: "", price: "", priceDetail: "", category: "4g", dataGB: 0, calls: "ללא הגבלה", features: [], logoUrl: "", isHot: false, badge: "", afterPrice: "", extras: "", is5G: false, order: 0, featured: false });
+  const [form, setForm] = useState(pkg || { provider: "", providerName: "", price: "", priceDetail: "", category: "4g", dataGB: 0, calls: "ללא הגבלה", features: [], logoUrl: "", isHot: false, badge: "", afterPrice: "", extras: "", is5G: false, order: 0, featured: false, sku: "" });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 overflow-y-auto" onClick={onClose}>
       <div className="bg-white rounded-3xl p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto border-2 border-slate-200 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-slate-800 mb-6 pb-3 border-b-2 border-[#1e3a5f]">{pkg ? "עריכת חבילה" : "הוספת חבילה חדשה"}</h3>
         <div className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-6 bg-slate-50 rounded-2xl">
               <label className="block text-sm font-bold text-slate-800 mb-1">חברה / ספק (חובה)</label>
               <p className="text-xs text-slate-500 mb-2">שם החברה: פרטנר, סלקום, Golan וכו׳</p>
@@ -1116,6 +1121,11 @@ function PackageFormModal({ pkg, onSave, onClose }) {
               <label className="block text-sm font-bold text-slate-800 mb-1">שם לתצוגה (אופציונלי)</label>
               <p className="text-xs text-slate-500 mb-2">אם שונה משם החברה – לדוג׳: HOT mobile</p>
               <input value={form.providerName || ""} onChange={(e) => setForm((f) => ({ ...f, providerName: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3" placeholder="סלקום, HOT mobile..." />
+            </div>
+            <div className="p-6 bg-slate-50 rounded-2xl">
+              <label className="block text-sm font-bold text-slate-800 mb-1">מק״ט (קוד חבילה)</label>
+              <p className="text-xs text-slate-500 mb-2">קוד פנימי לזיהוי מהיר בחיפוש ובוואטסאפ. אם ריק – יווצר קוד אקראי.</p>
+              <input value={form.sku || ""} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="לדוג׳: 9123" />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1233,7 +1243,8 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
 
   const saveProduct = async (prod) => {
     const maxOrder = products.reduce((m, p) => Math.max(m, p.order ?? 0), 0);
-    const payload = { name: prod.name, price: prod.price ?? null, description: prod.description || "", tags: prod.tags || [], images: prod.images || [], order: prod.order ?? maxOrder + 1, badge: prod.badge || "", featured: !!prod.featured };
+    const sku = (prod.sku || "").toString().trim() || generateSku("P");
+    const payload = { name: prod.name, price: prod.price ?? null, description: prod.description || "", tags: prod.tags || [], images: prod.images || [], order: prod.order ?? maxOrder + 1, badge: prod.badge || "", featured: !!prod.featured, sku };
     if (db) {
       try {
         if (prod.id && !String(prod.id).startsWith("prod-")) {
@@ -1340,7 +1351,7 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
 }
 
 function ProductFormModal({ product, onSave, onClose, showToast }) {
-  const [form, setForm] = useState(product ? { ...product, imagesText: (product.images || []).join("\n"), tagsText: (product.tags || []).join(", "), featured: !!product.featured } : { name: "", price: "", imagesText: "", description: "", tagsText: "", badge: "", featured: false });
+  const [form, setForm] = useState(product ? { ...product, imagesText: (product.images || []).join("\n"), tagsText: (product.tags || []).join(", "), featured: !!product.featured } : { name: "", price: "", imagesText: "", description: "", tagsText: "", badge: "", featured: false, sku: "" });
   const [newFiles, setNewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -1386,7 +1397,7 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
       setUploading(false);
     }
     const tags = form.tagsText ? form.tagsText.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order, featured: !!form.featured });
+    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order, featured: !!form.featured, sku: (form.sku || "").toString().trim() });
   };
 
   return (
@@ -1394,6 +1405,11 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
       <div className="bg-white rounded-3xl p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto border-2 border-slate-200 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-slate-800 mb-6 pb-3 border-b-2 border-[#1e3a5f]">{product ? "עריכת מוצר" : "הוספת מוצר חדש"}</h3>
         <div className="space-y-5">
+          <div className="p-4 bg-slate-50 rounded-xl">
+            <label className="block text-sm font-bold text-slate-800 mb-1">מק״ט (קוד מוצר)</label>
+            <p className="text-xs text-slate-500 mb-2">קוד פנימי לזיהוי מהיר. אם תשאיר ריק – יווצר קוד אקראי.</p>
+            <input value={form.sku || ""} onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm" placeholder="לדוג׳: 8479" />
+          </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">שם המוצר / המכשיר (חובה)</label>
             <p className="text-xs text-slate-500 mb-2">לדוג׳: iPhone 15, Samsung Galaxy S24, תיקון מסך. אחרי הזנת הדגם – לחץ &quot;המלצת AI&quot; למילוי אוטומטי.</p>
