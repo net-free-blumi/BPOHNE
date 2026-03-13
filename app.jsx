@@ -693,33 +693,7 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
     const productUrl = `${base}/product/${product.id || ""}`;
     const mainLine = `${product.name || "מוצר"}${product.price != null && product.price !== "" ? ` - ${formatPrice(product.price)} ₪` : ""} | B-Phone ביפון`;
     const waFullUrl = buildWhatsAppUrlForItem({ ...product, category: "product" });
-
-    // ניסיון לקצר את קישור הוואטסאפ. אם נכשלים – נשתמש במלא.
-    let waDisplayUrl = waFullUrl;
-    try {
-      const res = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(waFullUrl)}`);
-      if (res.ok) {
-        const shortUrl = (await res.text()).trim();
-        if (shortUrl && shortUrl.startsWith("http")) {
-          waDisplayUrl = shortUrl;
-        }
-      }
-    } catch (_) {
-      // אם יש שגיאה – ננסה shortener נוסף; אם גם הוא נכשל – נשארים עם הקישור הארוך
-    }
-    if (waDisplayUrl === waFullUrl) {
-      try {
-        const res2 = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(waFullUrl)}`);
-        if (res2.ok) {
-          const short2 = (await res2.text()).trim();
-          if (short2 && short2.startsWith("http")) {
-            waDisplayUrl = short2;
-          }
-        }
-      } catch (_) {
-        // מתעלמים – משתמשים בקישור המקורי
-      }
-    }
+    const waDisplayUrl = waFullUrl;
 
     const waText = buildWhatsAppTextForItem({ ...product, category: "product" });
     const fullText = `${mainLine}\n\n${waText}\n\n1) הצג באתר:\n${productUrl}\n\n2) לפרטים בוואטסאפ:\n${waDisplayUrl}`;
