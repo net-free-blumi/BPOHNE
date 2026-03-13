@@ -704,7 +704,20 @@ ${pkg.features && pkg.features.length ? `*יתרונות:*\n${pkg.features.join(
         }
       }
     } catch (_) {
-      // אם יש שגיאה – פשוט נשארים עם הקישור הארוך
+      // אם יש שגיאה – ננסה shortener נוסף; אם גם הוא נכשל – נשארים עם הקישור הארוך
+    }
+    if (waDisplayUrl === waFullUrl) {
+      try {
+        const res2 = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(waFullUrl)}`);
+        if (res2.ok) {
+          const short2 = (await res2.text()).trim();
+          if (short2 && short2.startsWith("http")) {
+            waDisplayUrl = short2;
+          }
+        }
+      } catch (_) {
+        // מתעלמים – משתמשים בקישור המקורי
+      }
     }
 
     const waText = buildWhatsAppTextForItem({ ...product, category: "product" });
