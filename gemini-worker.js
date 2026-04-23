@@ -39,6 +39,16 @@ function isRetryableGeminiFailure(status, msg) {
   );
 }
 
+function isGeminiModelUnavailable(status, msg) {
+  const m = String(msg || "").toLowerCase();
+  return (
+    status === 404 ||
+    m.includes("is not found for api version") ||
+    m.includes("not supported for generatecontent") ||
+    m.includes("model not found")
+  );
+}
+
 function isRetryableGroqFailure(status, msg) {
   const m = String(msg || "").toLowerCase();
   return (
@@ -103,7 +113,7 @@ export default {
       const modelCandidates = [
         "gemini-2.5-flash",
         "gemini-2.0-flash",
-        "gemini-1.5-flash",
+        "gemini-2.0-flash-lite",
       ];
       let lastError = null;
 
@@ -128,7 +138,12 @@ export default {
         const errMsg = data.error?.message || "Gemini error";
         lastError = { status: res.status, msg: errMsg, model };
         const canTryNextModel = i < modelCandidates.length - 1;
-        if (!(isRetryableGeminiFailure(res.status, errMsg) && canTryNextModel)) {
+        const retryable = isRetryableGeminiFailure(res.status, errMsg);
+        const modelUnavailable = isGeminiModelUnavailable(res.status, errMsg);
+        if ((retryable || modelUnavailable) && canTryNextModel) {
+          continue;
+        }
+        if (!(retryable || modelUnavailable)) {
           return new Response(JSON.stringify({ error: errMsg, model }), {
             status: res.status,
             headers: { "Content-Type": "application/json", ...CORS },
