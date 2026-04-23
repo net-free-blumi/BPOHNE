@@ -114,6 +114,352 @@ function extractRetryAfterMs(err) {
   return null;
 }
 
+function normalizeAiNameSuggestion(originalName, suggestedName) {
+  const original = String(originalName || "").trim();
+  let name = String(suggestedName || "").trim() || original;
+  const originalClean = sanitizeProductNameForAi(original) || original;
+
+  // לא מוסיפים "Pro/Ultra/Plus/FE/Max" אם זה לא הופיע בקלט המקורי
+  const marketingSuffixes = ["pro", "ultra", "plus", "fe", "max", "פרו", "אולטרה", "פלוס"];
+  for (const suffix of marketingSuffixes) {
+    const inOriginal = new RegExp(`\\b${suffix}\\b`, "i").test(original);
+    if (!inOriginal) {
+      const re = new RegExp(`\\s+[-–—]?\\s*\\b${suffix}\\b`, "ig");
+      name = name.replace(re, "");
+    }
+  }
+
+  // אם שם המקור כולל דגם באנגלית (למשל Galaxy A56 / Soundcore P41i) – נשמר אותו
+  const modelMatch = original.match(/\b([A-Za-z][A-Za-z0-9-]*\s?[A-Za-z]?\d{1,4}[A-Za-z0-9/-]*)\b/);
+  if (modelMatch && !new RegExp(modelMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(name)) {
+    name = `${modelMatch[1]} ${name}`;
+  }
+
+  // מוסיפים "כשר" רק אם המשתמש כתב במפורש "כשר"
+  if (/\bכשר\b/i.test(original) && !/\bכשר\b/i.test(name)) {
+    name = `${name} כשר`;
+  }
+
+  // אייקון עדין בתחילת השם
+  if (!/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(name)) {
+    const lower = `${originalClean} ${name}`.toLowerCase();
+    if (lower.includes("airpods") || lower.includes("earbuds") || lower.includes("אוזניות") || lower.includes("headphones")) {
+      name = `🎧 ${name}`;
+    } else {
+      name = `📱 ${name}`;
+    }
+  }
+
+  const stripEmoji = (s) => String(s || "").replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, "").trim();
+  const o = stripEmoji(originalClean).toLowerCase();
+  const n = stripEmoji(name).toLowerCase();
+  const oWords = new Set(o.split(/\s+/).filter(Boolean));
+  const nWords = n.split(/\s+/).filter(Boolean);
+  const overlap = nWords.filter((w) => oWords.has(w)).length;
+  const overlapRatio = nWords.length ? overlap / nWords.length : 0;
+
+  // אם ה-AI סטה מהשם המקורי – נשמור על שם המקור כמעט לחלוטין
+  if (overlapRatio < 0.6 || !n.includes(o.split(/\s+/)[0] || "")) {
+    const base = originalClean.replace(/\s+/g, " ").trim();
+    if (!/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(base)) {
+      const lower = base.toLowerCase();
+      return (lower.includes("airpods") || lower.includes("earbuds") || lower.includes("אוזניות") || lower.includes("headphones") ? `🎧 ${base}` : `📱 ${base}`).trim();
+    }
+    return base;
+  }
+
+  return name.replace(/\s+/g, " ").trim();
+}
+
+function filterBulletByOriginalSpecs(originalName, line, allowedSpecsText = "") {
+  const original = String(originalName || "").toLowerCase();
+  const allowedText = String(allowedSpecsText || "").toLowerCase();
+  const strictMode = allowedText.trim().length > 0;
+  const knownSource = `${original}\n${allowedText}`;
+  const l = String(line || "");
+  const lower = l.toLowerCase();
+  const includesInOriginal = (rx) => rx.test(knownSource);
+
+  const riskyRules = [
+    { claim: /(5g|דור\s*5)/i, allow: /(5g|דור\s*5)/i },
+    { claim: /(4g|דור\s*4|volte)/i, allow: /(4g|דור\s*4|volte)/i },
+    { claim: /(ווידאו|וידאו|video|4k)/i, allow: /(ווידאו|וידאו|video|4k)/i },
+    { claim: /(wifi|wi-?fi)/i, allow: /(wifi|wi-?fi)/i },
+    { claim: /(bluetooth|בלוטוס)/i, allow: /(bluetooth|בלוטוס)/i },
+    { claim: /(ram|gb ram|זיכרון\s*ram)/i, allow: /(ram|gb ram|זיכרון\s*ram)/i },
+    { claim: /(mp|megapixel|מצלמה)/i, allow: /(mp|megapixel|מצלמה)/i },
+    { claim: /(ipx|ip\d)/i, allow: /(ipx|ip\d)/i },
+    { claim: /(mAh|mah|watt|טעינה\s*מהירה|20w|25w|45w)/i, allow: /(mAh|mah|watt|טעינה\s*מהירה|20w|25w|45w)/i },
+    { claim: /(android|ios|miui|one ui)/i, allow: /(android|ios|miui|one ui)/i },
+    { claim: /(מסך|inch|אינץ|hd\+?|fhd\+?|amoled|oled|120hz|90hz)/i, allow: /(מסך|inch|אינץ|hd\+?|fhd\+?|amoled|oled|120hz|90hz)/i },
+    { claim: /(מעבד|processor|snapdragon|exynos|dimensity|octa|גרעינ|ליבות)/i, allow: /(מעבד|processor|snapdragon|exynos|dimensity|octa|גרעינ|ליבות)/i },
+    { claim: /(microsd|micro\s*sd|sd card|כרטיס\s*זיכרון)/i, allow: /(microsd|micro\s*sd|sd card|כרטיס\s*זיכרון)/i },
+    { claim: /(טעינה\s*אלחוטית|wireless\s*charging|qi)/i, allow: /(טעינה\s*אלחוטית|wireless\s*charging|qi)/i },
+    { claim: /(knox|סמסונג\s*knox)/i, allow: /(knox|סמסונג\s*knox)/i },
+  ];
+
+  // במצב קשיח (יש מפרט ידני) לא נאפשר טענה שלא הופיעה במקור.
+  if (strictMode) {
+    for (const rule of riskyRules) {
+      if (rule.claim.test(lower) && !includesInOriginal(rule.allow)) {
+        return null;
+      }
+    }
+  }
+
+  // חוסמים מספרים טכניים שלא הופיעו בקלט המקורי (למשל 6 אינץ', 15W, 8 ליבות)
+  const originalNums = new Set((knownSource.match(/\d+(?:[./]\d+)?/g) || []).map((n) => n.replace(",", ".")));
+  const bulletNums = (lower.match(/\d+(?:[./]\d+)?/g) || []).map((n) => n.replace(",", "."));
+  const technicalContext = /(מסך|inch|אינץ|hz|mah|w|טעינה|ram|gb|tb|mp|מעבד|גרעינ|ליבות|android|ios|ip\d|ipx|microsd|bluetooth|wifi|5g|4g|דור)/i;
+  if (strictMode && technicalContext.test(lower)) {
+    for (const n of bulletNums) {
+      if (!originalNums.has(n)) {
+        return null;
+      }
+    }
+  }
+
+  // גם במצב לא-קשיח: חוסמים טענות שיווק חלשות/לא מקצועיות
+  const weakClaims = [
+    /תוכן חסר ספק/i,
+    /צלחת עסקאות/i,
+    /שירות מקצועי ומקסימלי/i,
+    /תפריט קל ומיידי/i,
+    /תקשורת סלולרית ברמה גבוהה/i,
+  ];
+  if (weakClaims.some((rx) => rx.test(lower))) return null;
+
+  return l;
+}
+
+function normalizeTechSpecsText(raw) {
+  return String(raw || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^[-•✔✅]\s*/, ""))
+    .slice(0, 12);
+}
+
+function injectKnownSpecsIntoDescription(descriptionText, techSpecsText) {
+  const specs = normalizeTechSpecsText(techSpecsText);
+  if (specs.length === 0) return descriptionText;
+  const desc = String(descriptionText || "").trim();
+  if (!desc) return `מפרט טכני עיקרי:\n${specs.map((s) => `✔️ ${s}`).join("\n")}\nזמין במבחר צבעים ביפון תקשורת סלולרית.`;
+
+  const lines = desc.split("\n");
+  const intro = lines[0] || "מפרט טכני עיקרי:";
+  const bullets = lines.slice(1).filter(Boolean);
+  const existingLower = bullets.join("\n").toLowerCase();
+  const missingSpecs = specs.filter((s) => !existingLower.includes(s.toLowerCase())).slice(0, 6);
+  if (missingSpecs.length === 0) return desc;
+  const mergedBullets = [...bullets, ...missingSpecs.map((s) => `✔️ ${s}`)];
+  return `${intro}\n${mergedBullets.join("\n")}`;
+}
+
+function normalizeAiDescription(originalName, rawDescription, allowedSpecsText = "") {
+  const original = String(originalName || "");
+  let text = String(rawDescription || "").replace(/\r\n/g, "\n").trim();
+  if (!text) return text;
+
+  // מסירים טקסטים בעייתיים
+  const blockedPhrases = [
+    /אלטרנטיבה\s*ל[-\s]*iphone/ig,
+    /alternative\s*to\s*iphone/ig,
+  ];
+  for (const rx of blockedPhrases) text = text.replace(rx, "");
+
+  // מסירים מטבעות לא רלוונטיים
+  text = text.replace(/\b\d[\d,.\s]*\s?(yen|usd|dollar|eur|euro)\b/ig, "");
+  text = text.replace(/\b(yen|usd|dollar|eur|euro)\s?\d[\d,.\s]*\b/ig, "");
+
+  const cleanLine = (line) =>
+    line
+      .replace(/\s+/g, " ")
+      .replace(/\s+[,.،:;!?]/g, (m) => m.trim())
+      .trim();
+
+  // מפרידים לבולטים לפי ✔️/✅
+  const parts = text
+    .split(/(?:✔️|✅)/g)
+    .map((p) => cleanLine(p))
+    .filter(Boolean);
+
+  let intro = parts.shift() || "";
+  intro = intro.replace(/[.]\s*$/, "");
+
+  let bullets = parts
+    .map((p) => p.replace(/^[-–—•]\s*/, ""))
+    .map((p) => cleanLine(p))
+    .filter(Boolean);
+
+  // אם אין בולטים מסודרים, מנסים לפצל לפי משפטים
+  if (bullets.length < 3) {
+    const sentences = text
+      .split(/\.\s+|\n+/g)
+      .map((s) => cleanLine(s))
+      .filter(Boolean);
+    if (!intro && sentences.length) intro = sentences.shift();
+    bullets = sentences;
+  }
+
+  // מוסיפים שורת כשר רק אם המשתמש כתב במפורש "כשר"
+  if (/\bכשר\b/i.test(original) && !/\bכשר\b/i.test(`${intro}\n${bullets.join("\n")}`)) {
+    bullets.unshift("תמיכה ושימוש מותאמים למכשיר כשר בהתאם לדגם.");
+  }
+
+  // מגבילים אורך ומנקים כפילויות קצרות
+  const seen = new Set();
+  bullets = bullets
+    .filter((b) => b.length >= 8)
+    .map((b) => filterBulletByOriginalSpecs(original, b, allowedSpecsText))
+    .filter(Boolean)
+    .filter((b) => {
+      const key = b.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+
+  if (!intro) intro = `מכשיר איכותי עם חוויית שימוש נוחה ואמינה ליום-יום.`;
+  if (bullets.length < 4) {
+    bullets.push("ביצועים יציבים ומהירים לשימוש יומיומי.");
+    bullets.push("נוחות שימוש גבוהה לאורך זמן.");
+    bullets.push("תמורה מצוינת למחיר ושירות מקצועי בביפון.");
+  }
+
+  const normalized = `${intro}\n${bullets.map((b) => `✔️ ${b}`).join("\n")}\nזמין במבחר צבעים ביפון תקשורת סלולרית.`;
+  return injectKnownSpecsIntoDescription(normalized, allowedSpecsText);
+}
+
+function normalizeAiTags(originalName, tagsInput, allowedSpecsText = "") {
+  const original = `${String(originalName || "").toLowerCase()}\n${String(allowedSpecsText || "").toLowerCase()}`;
+  const rawTags = Array.isArray(tagsInput) ? tagsInput : String(tagsInput || "").split(",");
+  const clean = (s) => String(s || "").replace(/\s+/g, " ").trim();
+  const tags = rawTags.map(clean).filter(Boolean);
+
+  const allowedOnlyIfInOriginal = [
+    /(5g|דור\s*5)/i,
+    /(4g|דור\s*4|volte)/i,
+    /(ווידאו|וידאו|video|4k)/i,
+    /(wifi|wi-?fi)/i,
+    /(ram|gb ram|זיכרון)/i,
+    /(מצלמה|mp)/i,
+  ];
+
+  const result = [];
+  const seen = new Set();
+  for (const t of tags) {
+    const lower = t.toLowerCase();
+    let allowed = true;
+    for (const rx of allowedOnlyIfInOriginal) {
+      if (rx.test(lower) && !rx.test(original)) {
+        allowed = false;
+        break;
+      }
+    }
+    if (!allowed) continue;
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      result.push(t);
+    }
+  }
+  return result.slice(0, 7).join(", ");
+}
+
+function isLowQualityHebrewDescription(text) {
+  const t = String(text || "").trim();
+  if (!t) return true;
+  const lower = t.toLowerCase();
+
+  // ביטויים שמעידים על תרגום/ניסוח לא טבעי
+  const badPhrases = [
+    "שירות חזותי",
+    "האאוט",
+    "out-stream",
+    "בידיוגר",
+    "שורה, וסיכוי",
+    "תצוגה: תצוגה",
+    "תמיכה בטורבו",
+    "תוכן חסר ספק",
+    "גיים אינטרפייס",
+    "מערכת אחסון נקייה",
+    "מערכות הפעלה הנפוצות",
+    "תקשורת סלולרית ברמה גבוהה",
+    "חיישנים אופטיים משופרים",
+    "לא סופק מפרט טכני ידוע",
+  ];
+  if (badPhrases.some((p) => lower.includes(p))) return true;
+
+  const bulletCount = (t.match(/[✔✅]/g) || []).length;
+  if (bulletCount < 4) return true;
+
+  // יותר מדי כפילויות של אותה מילה -> טקסט חלש
+  const words = t.replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length > 10) {
+    const freq = new Map();
+    for (const w of words) {
+      const k = w.toLowerCase();
+      freq.set(k, (freq.get(k) || 0) + 1);
+    }
+    const maxRepeat = Math.max(...freq.values());
+    if (maxRepeat >= 6) return true;
+  }
+
+  return false;
+}
+
+function buildProfessionalFallbackDescription(originalName) {
+  const n = String(originalName || "").trim();
+  const isEarbuds = /(airpods|earbuds|buds|אוזניות|headphones)/i.test(n);
+  const isTablet = /(tablet|tab|טאבלט|ipad|אייפד)/i.test(n);
+
+  if (isEarbuds) {
+    return `הכירו את ${n} – פתרון איכותי לשמע יומיומי עם נוחות גבוהה ושימוש פשוט.
+✔️ סאונד נקי וברור לשיחות, מוזיקה ותוכן יומי.
+✔️ חיבור יציב ומהיר למכשיר, עם שימוש נוח לאורך היום.
+✔️ נוחות גבוהה באוזן גם בשימוש ממושך.
+✔️ עיצוב מודרני ואיכות בנייה טובה לשימוש יום-יומי.
+✔️ מתאימות לעבודה, נסיעות ואימונים קלים.
+✔️ תמורה מצוינת למחיר ושירות מקצועי בביפון.
+זמין במבחר צבעים ביפון תקשורת סלולרית.`;
+  }
+
+  if (isTablet) {
+    return `הכירו את ${n} – טאבלט פרקטי ואמין לשימוש יומיומי בבית, בלימודים ובעבודה.
+✔️ מספק חוויית שימוש נוחה וזורמת לאורך היום.
+✔️ מתאים לצפייה בתוכן, גלישה וניהול משימות יומיומיות.
+✔️ תפעול פשוט ונוח לכל בני המשפחה.
+✔️ איכות בנייה טובה לשימוש קבוע ויציב.
+✔️ פתרון מצוין למי שמחפש טאבלט מאוזן במחיר משתלם.
+✔️ שירות ואחריות בביפון עם ליווי מקצועי.
+זמין במבחר צבעים ביפון תקשורת סלולרית.`;
+  }
+
+  return `הכירו את ${n} – סמארטפון איכותי ומאוזן שמתאים לשימוש יומיומי נוח ואמין.
+✔️ ביצועים יציבים לגלישה, הודעות, שיחות ואפליקציות יומיומיות.
+✔️ חוויית שימוש חלקה ונוחה לאורך כל היום.
+✔️ מצלמה טובה לשימוש יום-יומי ולצילום רגעים חשובים.
+✔️ נוחות אחיזה ותפעול פשוט לכל משתמש.
+✔️ תמורה מצוינת למחיר למי שמחפש מכשיר אמין.
+✔️ שירות מקצועי וליווי אישי בביפון גם אחרי הרכישה.
+זמין במבחר צבעים ביפון תקשורת סלולרית.`;
+}
+
+function sanitizeProductNameForAi(rawName) {
+  return String(rawName || "")
+    // סימוני סינון/אחריות שלא אמורים להשפיע על תוכן שיווקי
+    .replace(/\bהדרן\b/gi, "")
+    .replace(/\bי\.?\s*ח\.?\b/gi, "")
+    .replace(/\bס\.?\s*נ\.?\b/gi, "")
+    .replace(/\bאחריות\b/gi, "")
+    .replace(/\bיבואן\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function callGeminiAdmin(prompt, systemInstruction) {
   if (!GEMINI_PROXY_URL) throw new Error("לא הוגדר GEMINI_PROXY_URL");
   const endpoints = [GEMINI_PROXY_URL, GEMINI_PROXY_URL_BACKUP].filter(Boolean);
@@ -138,7 +484,11 @@ async function callGeminiAdmin(prompt, systemInstruction) {
           throw e;
         }
         if (!data.text) throw new Error("לא התקבלה תשובה מה-AI");
-        return data.text;
+        return {
+          text: data.text,
+          provider: (data.provider || "gemini").toLowerCase(),
+          model: data.model || "",
+        };
       } catch (err) {
         lastError = err;
         const hardQuota = isHardQuotaExceeded(err);
@@ -184,38 +534,113 @@ async function callGeminiAdmin(prompt, systemInstruction) {
 }
 
 /** משתמש באותו Gemini של ביביפ בוט – מחזיר המלצות למוצר (שם, תיאור, תגית, תגיות) בסגנון ביפון */
-async function suggestProductWithAI(productName) {
+async function suggestProductWithAI(productName, techSpecsText = "") {
   if (!GEMINI_PROXY_URL || !productName || !String(productName).trim()) return null;
-  const name = String(productName).trim();
-  const systemInstruction = `אתה עוזר לחנות ביפון תקשורת סלולרית – סניפים בבית שמש וביתר. תחזיר רק JSON תקני, בלי טקסט לפני או אחרי.
-סגנון התיאורים: משפט פתיחה על המוצר, שורות עם ✔️ או ✅ (ביצועים, מסך, מצלמה, נפח אחסון). לסיים ב"זמין במבחר צבעים" אם מתאים.
-תגית מבצע: קצר – "מבצע חם!", "יחידה אחרונה במלאי", "במחיר מיוחד".
-תגיות: מותג, דגם, נפח, מופרדות בפסיק.
-nameSuggestion צריך להיות ברור, מסחרי וקצר. עדיפות לעברית, אבל מותר לשלב דגם באנגלית (לדוגמה: "סמסונג גלקסי S26 אולטרה 512GB").
-מותר להוסיף אייקון עדין אחד בתחילת nameSuggestion כשזה מתאים (למשל 🎧 לאוזניות או 📱 לסמארטפון/טאבלט), בלי להגזים.`;
-  const prompt = `המוצר/מכשיר: "${name}". החזר JSON עם המפתחות בלבד: nameSuggestion (שם מוצר ברור ומסחרי, עדיפות עברית עם אפשרות לשילוב אנגלית לדגם), description (תיאור שיווקי עם ✔️), badge (תגית מבצע קצרה), tags (מחרוזת תגיות בפסיקים), priceSuggestion (מספר או null).`;
-  try {
-    const raw = await callGeminiAdmin(prompt, systemInstruction);
-    const jsonMatch = (raw || "").match(/\{[\s\S]*\}/);
-    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-    if (parsed && typeof parsed.description === "string") {
-      let nameSuggestion = typeof parsed.nameSuggestion === "string" ? parsed.nameSuggestion.trim() : "";
+  const originalName = String(productName).trim();
+  const name = sanitizeProductNameForAi(originalName) || originalName;
+  const normalizedSpecs = normalizeTechSpecsText(techSpecsText);
+  const knownSpecsBlock = normalizedSpecs.join("\n");
+  const specsBlockForPrompt = knownSpecsBlock || "לא סופק מפרט טכני ידוע. אל תמציא נתונים טכניים.";
+  const hasKnownSpecs = normalizedSpecs.length > 0;
+  const systemInstruction = `אתה כותב תוכן מכירה מקצועי לחנות ביפון תקשורת סלולרית (בית שמש + ביתר).
+תחזיר JSON תקני בלבד, ללא טקסט נוסף.
+השפה: עברית שיווקית טבעית, אמינה ולא מוגזמת.
+nameSuggestion: שם מסחרי קצר וברור. שמור את הדגם כפי שהוזן (אפשר אנגלית בדגם). אל תמציא סיומות כמו Pro/Ultra/Plus/FE אם לא הופיעו בקלט.
+description: חייב להיות עשיר ומפורט:
+1) שורת פתיחה שיווקית אחת מלאה.
+2) 6-8 שורות יתרונות עם ✔️, כל שורה משפט מלא וקונקרטי.
+3) לכלול רק יתרונות הגיוניים לדגם/קטגוריה, בלי להמציא מפרט לא סביר.
+4) אל תמציא מספרים טכניים (RAM/MP/IP/IPX/mAh/W/גרסת אנדרואיד) אם לא ידועים בוודאות.
+5) לא להשתמש במטבעות זרים (YEN/USD/EUR). אם מציינים מחיר – רק ₪.
+6) כל יתרון בשורה נפרדת שמתחילה ב-✔️.
+7) אם סופק "מפרט טכני ידוע" – השתמש אך ורק בו לנתונים טכניים.
+8) אם לא סופק מפרט טכני ידוע – השתמש בידע ציבורי נפוץ של הדגם, ורק נתונים סבירים ומוכרים; אין להמציא תכונות לא אמינות.
+9) לסיים בשורה מסכמת קצרה בסגנון: "זמין במבחר צבעים ביפון תקשורת סלולרית".
+tags: מחרוזת תגיות בפסיקים, 4-7 תגיות איכותיות (מותג, דגם, קטגוריה, תכונה מרכזית).
+badge: קצר ומכירתי.`;
+  const prompt = `המוצר/מכשיר: "${name}".
+מפרט טכני ידוע (מותר להשתמש רק בו לנתונים מספריים/טכניים):
+${specsBlockForPrompt}
 
-      // אייקון עדין בתחילת השם (רק אם חסר אייקון לגמרי)
-      if (nameSuggestion && !/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(nameSuggestion)) {
-        const lower = nameSuggestion.toLowerCase();
-        if (lower.includes("airpods") || lower.includes("earbuds") || lower.includes("אוזניות") || lower.includes("headphones")) {
-          nameSuggestion = `🎧 ${nameSuggestion}`;
-        } else if (lower.includes("tablet") || lower.includes("טאבלט") || lower.includes("iphone") || lower.includes("galaxy") || lower.includes("סמסונג") || lower.includes("שיאומי")) {
-          nameSuggestion = `📱 ${nameSuggestion}`;
-        }
+החזר JSON עם המפתחות בלבד:
+- nameSuggestion
+- description
+- badge
+- tags (מחרוזת תגיות מופרדות בפסיק)
+- priceSuggestion (מספר או null)
+דרישה: description חייב להיות ארוך ומקצועי (פתיח + לפחות 6 שורות עם ✔️).
+${hasKnownSpecs ? "חובה לשלב כמה שיותר פרטים מהמפרט שסופק." : "חובה לכלול לפחות 4 שורות טכניות אמיתיות לדגם (למשל מצלמה/סוללה/טעינה/מסך/עמידות מים אם ידוע), בלי מילים כלליות חלשות."}`;
+
+  const isRichDescription = (txt) => {
+    const t = String(txt || "");
+    const bulletCount = (t.match(/[✔✅]/g) || []).length;
+    return t.length >= 220 && bulletCount >= 6;
+  };
+
+  const parseJsonSuggestion = (rawText) => {
+    const jsonMatch = (rawText || "").match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {
+      return null;
+    }
+  };
+
+  try {
+    let aiResult = await callGeminiAdmin(prompt, systemInstruction);
+    let parsed = parseJsonSuggestion(aiResult?.text);
+
+    // אם ה-AI החזיר תיאור קצר מדי, מבצעים ניסיון שיפור נוסף.
+    if (parsed && !isRichDescription(parsed.description)) {
+      const improvePrompt = `התיאור שקיבלת קצר מדי ולא מספיק מקצועי למכירה.
+כתוב מחדש את אותה תשובה לאותו מוצר, אבל עם פתיח מקצועי + 6-8 שורות ✔️ מפורטות.
+המוצר: "${name}".
+החזר JSON בלבד עם אותם מפתחות: nameSuggestion, description, badge, tags, priceSuggestion.`;
+      aiResult = await callGeminiAdmin(improvePrompt, systemInstruction);
+      parsed = parseJsonSuggestion(aiResult?.text) || parsed;
+    }
+
+    if (parsed && typeof parsed.description === "string") {
+      let nameSuggestion = normalizeAiNameSuggestion(originalName, parsed.nameSuggestion);
+      let normalizedDescription = normalizeAiDescription(originalName, parsed.description, knownSpecsBlock);
+
+      // אם יצא ניסוח חלש/לא טבעי, מבקשים שכתוב נוסף ממוקד.
+      if (isLowQualityHebrewDescription(normalizedDescription)) {
+        const rewritePrompt = `שכתב את התיאור לעברית שיווקית טבעית, אמינה ונקייה, בלי ביטויים מוזרים ובלי תרגום מכונה.
+אל תמציא נתונים טכניים חדשים.
+המוצר: "${name}".
+החזר JSON בלבד עם המפתחות: nameSuggestion, description, badge, tags, priceSuggestion.
+דרישות description:
+- פתיח קצר ומקצועי
+- 6 שורות ✔️, כל שורה בשורה חדשה
+- נקודות שבאמת מעניינות קונה: אמינות, נוחות שימוש, ביצועים יומיומיים, שירות, תמורה למחיר
+- לסיים ב: "זמין במבחר צבעים ביפון תקשורת סלולרית."`;
+        try {
+          const rewriteResult = await callGeminiAdmin(rewritePrompt, systemInstruction);
+          const rewritten = parseJsonSuggestion(rewriteResult?.text);
+          if (rewritten?.description) {
+            normalizedDescription = normalizeAiDescription(originalName, rewritten.description, knownSpecsBlock);
+            if (typeof rewritten.nameSuggestion === "string" && rewritten.nameSuggestion.trim()) {
+              nameSuggestion = normalizeAiNameSuggestion(originalName, rewritten.nameSuggestion);
+            }
+            aiResult = rewriteResult;
+          }
+        } catch (_) {}
+      }
+
+      // שכבת בטיחות אחרונה לטקסט גרוע במיוחד
+      if (isLowQualityHebrewDescription(normalizedDescription)) {
+        normalizedDescription = buildProfessionalFallbackDescription(originalName);
       }
       return {
         nameSuggestion,
-        description: parsed.description,
+        description: normalizedDescription,
         badge: typeof parsed.badge === "string" ? parsed.badge : "",
-        tagsText: Array.isArray(parsed.tags) ? parsed.tags.join(", ") : (parsed.tags || ""),
+        tagsText: normalizeAiTags(originalName, parsed.tags, knownSpecsBlock),
         priceSuggestion: typeof parsed.priceSuggestion === "number" ? parsed.priceSuggestion : null,
+        provider: aiResult?.provider || "gemini",
+        model: aiResult?.model || "",
       };
     }
     return null;
@@ -526,9 +951,9 @@ function AdminApp() {
   const [previewKey, setPreviewKey] = useState(0);
   const [quickEditOpen, setQuickEditOpen] = useState(true);
 
-  const showToast = (msg, type = "info") => {
+  const showToast = (msg, type = "info", durationMs = 4500) => {
     setToast({ message: msg, type });
-    setTimeout(() => setToast(null), 4500);
+    setTimeout(() => setToast(null), durationMs);
   };
 
   useEffect(() => {
@@ -1498,7 +1923,7 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
 }
 
 function ProductFormModal({ product, onSave, onClose, showToast }) {
-  const [form, setForm] = useState(product ? { ...product, imagesText: (product.images || []).join("\n"), tagsText: (product.tags || []).join(", "), featured: !!product.featured } : { name: "", price: "", imagesText: "", description: "", tagsText: "", badge: "", featured: false, sku: "" });
+  const [form, setForm] = useState(product ? { ...product, imagesText: (product.images || []).join("\n"), tagsText: (product.tags || []).join(", "), featured: !!product.featured, techSpecsText: product.techSpecsText || "" } : { name: "", price: "", imagesText: "", description: "", tagsText: "", badge: "", featured: false, sku: "", techSpecsText: "" });
   const [newFiles, setNewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -1515,7 +1940,7 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
     }
     setAiLoading(true);
     try {
-      const suggested = await suggestProductWithAI(name);
+      const suggested = await suggestProductWithAI(name, form.techSpecsText || "");
       if (suggested) {
         setForm((f) => ({
           ...f,
@@ -1525,7 +1950,11 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
           tagsText: suggested.tagsText || f.tagsText,
           price: (f.price !== "" && f.price != null) ? f.price : (suggested.priceSuggestion != null ? String(suggested.priceSuggestion) : f.price),
         }));
-        if (showToast) showToast("ה‑AI שיפר גם את שם המוצר ומילא פרטים – אפשר לערוך ידנית", "success");
+        if (showToast) {
+          const providerName = suggested.provider === "groq" ? "Groq" : "Gemini";
+          const modelLabel = suggested.model ? ` (${suggested.model})` : "";
+          showToast(`ההמלצה הוכנה בהצלחה באמצעות ${providerName}${modelLabel}. אפשר לערוך ידנית לפני שמירה.`, "success", 9000);
+        }
       } else {
         if (showToast) showToast("לא התקבלה תשובה מתאימה מ-AI. נסה שוב או מלא ידנית.", "error");
       }
@@ -1545,7 +1974,7 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
       setUploading(false);
     }
     const tags = form.tagsText ? form.tagsText.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order, featured: !!form.featured, sku: (form.sku || "").toString().trim() });
+    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order, featured: !!form.featured, sku: (form.sku || "").toString().trim(), techSpecsText: (form.techSpecsText || "").toString().trim() });
   };
 
   return (
@@ -1589,6 +2018,11 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
             <label className="block text-sm font-bold text-slate-800 mb-1">תיאור המוצר</label>
             <p className="text-xs text-slate-500 mb-2">טקסט חופשי שמתאר את המוצר. יכול לכלול מפרט טכני</p>
             <textarea value={form.description || ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-4 min-h-[140px] text-base leading-relaxed" placeholder="תיאור המוצר..." rows={6} />
+          </div>
+          <div className="p-4 bg-slate-50 rounded-xl">
+            <label className="block text-sm font-bold text-slate-800 mb-1">מפרט טכני מדויק (מומלץ ל-AI)</label>
+            <p className="text-xs text-slate-500 mb-2">שורה לכל נתון אמיתי בלבד. לדוגמה: מצלמה: 50MP | סוללה: 5000mAh | טעינה מהירה: 25W | עמידות מים: IP67 | מסך: 6.6&quot; FHD+.</p>
+            <textarea value={form.techSpecsText || ""} onChange={(e) => setForm((f) => ({ ...f, techSpecsText: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3 min-h-[110px] text-sm leading-relaxed" placeholder={"מצלמה: 50MP\nסוללה: 5000mAh\nטעינה מהירה: 25W\nעמידות מים: IP67\nמסך: 6.6\" FHD+"} rows={5} />
           </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">תמונות המוצר</label>

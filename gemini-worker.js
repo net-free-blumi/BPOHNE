@@ -8,7 +8,8 @@
  * 4. מחק את הקוד והדבק את כל הקובץ הזה (מהשורה export default עד הסוף)
  * 5. Settings → Variables → Add variable: GEMINI_API_KEY (Secret) – הדבק את המפתח מ-Google AI Studio
  *    אופציונלי לגיבוי חינמי נוסף: GROQ_API_KEY (Secret)
- *    אופציונלי: GROQ_MODEL (plain text), ברירת מחדל: llama-3.1-8b-instant
+ *    אופציונלי: GROQ_MODEL (plain text) או GROQ_MODELS (CSV)
+ *    ברירת מחדל איכותית: qwen/qwen3-32b,openai/gpt-oss-120b,llama-3.1-8b-instant
  * 6. Save and Deploy
  * 7. העתק את כתובת ה-Worker (כמו https://gemini-proxy.שם-החשבון.workers.dev)
  * 8. באתר (index.html) הוסף: window.GEMINI_PROXY_URL = "https://הכתובת-שלך";
@@ -66,6 +67,18 @@ function isRetryableGroqFailure(status, msg) {
   );
 }
 
+function getGroqModelCandidates(env) {
+  const listFromEnv = String(env.GROQ_MODELS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (listFromEnv.length) return listFromEnv;
+  const single = String(env.GROQ_MODEL || "").trim();
+  if (single) return [single];
+  // ברירת מחדל איכותית יותר לעברית/דיוק טכני
+  return ["qwen/qwen3-32b", "openai/gpt-oss-120b", "llama-3.1-8b-instant"];
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -87,7 +100,7 @@ export default {
       });
     }
     const groqApiKey = env.GROQ_API_KEY;
-    const groqModel = env.GROQ_MODEL || "llama-3.1-8b-instant";
+    const groqModels = getGroqModelCandidates(env);
 
     let prompt, systemInstruction;
     try {
@@ -154,47 +167,64 @@ export default {
       // Gemini נכשל בכל המודלים: ניסיון גיבוי ל-Groq (אם הוגדר)
       if (groqApiKey) {
         try {
-          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${groqApiKey}`,
-            },
-            body: JSON.stringify({
-              model: groqModel,
-              temperature: 0.7,
-              max_tokens: 1024,
-              response_format: { type: "json_object" },
-              messages: [
-                ...(systemInstruction ? [{ role: "system", content: systemInstruction }] : []),
-                { role: "user", content: prompt },
-              ],
-            }),
-          });
-          const groqData = await groqRes.json().catch(() => ({}));
-          if (groqRes.ok) {
-            const text = groqData?.choices?.[0]?.message?.content || "לא התקבלה תשובה.";
-            return new Response(JSON.stringify({ text, model: groqModel, provider: "groq" }), {
-              status: 200,
+          let groqLastError = null;
+          for (let i = 0; i < groqModels.length; i++) {
+            const groqModel = groqModels[i];
+            const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${groqApiKey}`,
+              },
+              body: JSON.stringify({
+                model: groqModel,
+                temperature: 0.2,
+                top_p: 0.9,
+                max_tokens: 1024,
+                response_format: { type: "json_object" },
+                messages: [
+                  ...(systemInstruction ? [{ role: "system", content: systemInstruction }] : []),
+                  { role: "user", content: prompt },
+                ],
+              }),
+            });
+            const groqData = await groqRes.json().catch(() => ({}));
+            if (groqRes.ok) {
+              const text = groqData?.choices?.[0]?.message?.content || "לא התקבלה תשובה.";
+              return new Response(JSON.stringify({ text, model: groqModel, provider: "groq" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json", ...CORS },
+              });
+            }
+            const groqErrMsg = groqData?.error?.message || "Groq error";
+            groqLastError = { status: groqRes.status, msg: groqErrMsg, model: groqModel };
+            const retryable = isRetryableGroqFailure(groqRes.status, groqErrMsg);
+            const canTryNext = i < groqModels.length - 1;
+            if (retryable && canTryNext) continue;
+            const baseErr = lastError?.msg || "Gemini overload";
+            return new Response(JSON.stringify({
+              error: `${baseErr} | ${groqErrMsg}`,
+              model: lastError?.model || "unknown",
+              fallbackModel: groqModel,
+            }), {
+              status: groqRes.status || 503,
               headers: { "Content-Type": "application/json", ...CORS },
             });
           }
-          const groqErrMsg = groqData?.error?.message || "Groq error";
-          const groqRetryable = isRetryableGroqFailure(groqRes.status, groqErrMsg);
           const baseErr = lastError?.msg || "Gemini overload";
           return new Response(JSON.stringify({
-            error: groqRetryable ? `${baseErr} | Groq overloaded` : `${baseErr} | ${groqErrMsg}`,
+            error: `${baseErr} | ${groqLastError?.msg || "Groq overloaded"}`,
             model: lastError?.model || "unknown",
-            fallbackModel: groqModel,
+            fallbackModel: groqLastError?.model || "unknown",
           }), {
-            status: groqRetryable ? 503 : (groqRes.status || 503),
+            status: groqLastError?.status || 503,
             headers: { "Content-Type": "application/json", ...CORS },
           });
         } catch (groqErr) {
           return new Response(JSON.stringify({
             error: `${lastError?.msg || "Gemini overload"} | Groq request failed: ${String(groqErr?.message || groqErr)}`,
             model: lastError?.model || "unknown",
-            fallbackModel: groqModel,
+            fallbackModel: groqModels[0] || "unknown",
           }), {
             status: 503,
             headers: { "Content-Type": "application/json", ...CORS },
