@@ -487,6 +487,7 @@ function App() {
   const [siteConfig, setSiteConfig] = useState(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [topSearchQuery, setTopSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [packagesVisibleCount, setPackagesVisibleCount] = useState(3);
   const [productsVisibleCount, setProductsVisibleCount] = useState(6);
@@ -767,34 +768,45 @@ function App() {
     return searchable.includes(q);
   });
 
-  const showAllFromSearch = (searchQuery || "").trim().length > 0;
-  const displayedPackages = showAllFromSearch ? filteredPackages : filteredPackages.slice(0, packagesVisibleCount);
-  const hasMorePackages = !showAllFromSearch && filteredPackages.length > packagesVisibleCount;
+  const displayedPackages = filteredPackages.slice(0, packagesVisibleCount);
+  const hasMorePackages = filteredPackages.length > packagesVisibleCount;
 
-  const filteredProducts = useMemo(() => {
-    const q = (searchQuery || "").trim().toLowerCase();
-    if (!q) return [...products];
-    return products.filter((p) => {
+  const sortedProducts = useMemo(
+    () => [...products].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
+    [products]
+  );
+  const displayedProducts = sortedProducts.slice(0, productsVisibleCount);
+  const hasMoreProducts = !isAdmin && sortedProducts.length > productsVisibleCount;
+  const topSearchResults = useMemo(() => {
+    const q = (topSearchQuery || "").trim().toLowerCase();
+    if (!q) return { products: [], packages: [] };
+    const productsRes = sortedProducts.filter((p) => {
+      const searchable = [p.sku, p.name, (p.tags || []).join(" "), p.description, String(p.price ?? "")]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(q);
+    }).slice(0, 6);
+    const packagesRes = [...packages].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)).filter((pkg) => {
       const searchable = [
-        p.sku,
-        p.name,
-        (p.tags || []).join(" "),
-        p.description,
-        String(p.price ?? ""),
+        pkg.sku,
+        pkg.providerNameHe,
+        pkg.providerName,
+        pkg.provider,
+        String(pkg.price),
+        categoryToLabel[pkg.category] || pkg.category,
+        (pkg.features && pkg.features.join(" ")) || "",
+        pkg.priceDetail || "",
+        pkg.badge || "",
+        pkg.extras || "",
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return searchable.includes(q);
-    });
-  }, [products, searchQuery]);
-
-  const sortedProducts = useMemo(
-    () => [...filteredProducts].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
-    [filteredProducts]
-  );
-  const displayedProducts = showAllFromSearch ? sortedProducts : sortedProducts.slice(0, productsVisibleCount);
-  const hasMoreProducts = !isAdmin && !showAllFromSearch && sortedProducts.length > productsVisibleCount;
+    }).slice(0, 6);
+    return { products: productsRes, packages: packagesRes };
+  }, [topSearchQuery, sortedProducts, packages]);
 
   const featuredProducts = useMemo(() => sortedProducts.filter((p) => p.featured), [sortedProducts]);
   const featuredPackages = useMemo(
@@ -925,22 +937,93 @@ function App() {
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={topSearchQuery}
+                onChange={(e) => setTopSearchQuery(e.target.value)}
                 placeholder="חיפוש לפי שם מוצר, חבילה או מק״ט..."
                 className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm sm:text-base text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <button
                 type="button"
-                onClick={() => setSearchQuery("")}
+                onClick={() => { setTopSearchQuery(""); setSearchOpen(false); }}
                 className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-sm hover:bg-slate-300"
-                title="נקה חיפוש"
-                aria-label="נקה חיפוש"
-                disabled={!searchQuery.trim()}
+                title="סגור חיפוש"
+                aria-label="סגור חיפוש"
               >
                 ×
               </button>
             </div>
+            {(topSearchQuery || "").trim() && (
+              <div className="mt-3 space-y-5">
+                {topSearchResults.products.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-2">מוצרים</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {topSearchResults.products.map((product) => (
+                        <ProductCard
+                          key={`top-product-${product.id}`}
+                          product={product}
+                          onWhatsApp={handleWhatsAppClick}
+                          onShare={handleShareProduct}
+                          onOpenDetail={(p, startIndex) => setProductDetailOpen({ product: p, startImageIndex: startIndex ?? 0 })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {topSearchResults.packages.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-2">חבילות</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {topSearchResults.packages.map((pkg) => {
+                        const headerClass = getProviderStripeClass(pkg.provider, pkg.is5G);
+                        const features = getPackageFeatures(pkg);
+                        const displayName = getProviderDisplayName(pkg);
+                        return (
+                          <div key={`top-package-${pkg.id}`} className="group bg-white rounded-2xl border border-gray-200/80 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden relative">
+                            {pkg.isHot && <div className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-bl-2xl z-10 shadow">מבצע מומלץ</div>}
+                            {pkg.badge && <div className={`absolute top-0 ${pkg.isHot ? "left-0 rounded-br-2xl" : "right-0 rounded-bl-2xl"} bg-amber-400 text-slate-900 text-xs font-bold px-4 py-2 z-10 shadow`}>{pkg.badge}</div>}
+                            <div className={`${headerClass} px-4 pt-4 pb-4 text-white text-center relative overflow-hidden`}>
+                              <div className="absolute inset-0 bg-black/10" />
+                              <div className="relative z-10 flex flex-col items-center">
+                                {pkg.logoUrl ? (
+                                  <img src={pkg.logoUrl} alt={displayName} className="w-20 h-20 object-contain bg-white rounded-full p-1 shadow-lg border-2 border-white/50 mb-2" />
+                                ) : (
+                                  <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mb-2 border-2 border-white/50 [&>div]:scale-150">
+                                    <ProviderLogo provider={pkg.provider} url={null} />
+                                  </div>
+                                )}
+                                <h3 className="text-lg font-bold tracking-tight opacity-95">{displayName}</h3>
+                                <div className="flex justify-center items-baseline gap-1 mt-1.5">
+                                  <span className="text-4xl font-extrabold tracking-tight">{formatPrice(pkg.price)}</span>
+                                  <span className="text-xl font-semibold mr-0.5">₪</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="p-5 flex-1 flex flex-col">
+                              <ul className="space-y-2.5 mb-5 flex-grow">
+                                {features.slice(0, 5).map((feature, idx) => (
+                                  <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                                    <Check size={16} className="text-emerald-500 mt-0.5 shrink-0" />
+                                    <span>{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                              <button onClick={() => handleWhatsAppClick(pkg)} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 mt-auto transition">
+                                <MessageCircle size={20} />
+                                להצטרפות
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {topSearchResults.products.length === 0 && topSearchResults.packages.length === 0 && (
+                  <p className="px-4 py-3 text-sm text-slate-500 bg-white border border-slate-200 rounded-xl">לא נמצאו תוצאות לחיפוש הזה.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1543,6 +1626,7 @@ function App() {
                   <span>הדגשת קישורים</span>
                 </button>
 
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1564,6 +1648,7 @@ function App() {
           </div>
         </div>
       )}
+
 
       {productDetailOpen && (
         <ProductDetailSheet
@@ -1859,6 +1944,23 @@ function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp,
   const images = (product.images && product.images.length > 0) ? product.images : (product.imageUrl ? [product.imageUrl] : []);
   const [imageIndex, setImageIndex] = useState(Math.min(startImageIndex, Math.max(0, images.length - 1)));
   const mainImage = images[imageIndex];
+  const swipeStartXRef = React.useRef(null);
+
+  const showPrevImage = () => setImageIndex((i) => (i - 1 + images.length) % images.length);
+  const showNextImage = () => setImageIndex((i) => (i + 1) % images.length);
+
+  const onSwipeStart = (x) => {
+    swipeStartXRef.current = x;
+  };
+  const onSwipeEnd = (x) => {
+    if (swipeStartXRef.current == null) return;
+    const deltaX = x - swipeStartXRef.current;
+    swipeStartXRef.current = null;
+    if (Math.abs(deltaX) < 40) return;
+    // RTL: כיוון ההחלקה הפוך (ימין = הבא, שמאל = הקודם)
+    if (deltaX > 0) showNextImage();
+    else showPrevImage();
+  };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 md:p-5" dir="rtl">
@@ -1882,18 +1984,42 @@ function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp,
         <div className="flex-1 min-h-0 overflow-y-auto">
           {images.length > 0 && (
             <div className="relative bg-slate-50 border-b border-slate-100">
-              <div className="aspect-square max-h-[45vh] w-full flex items-center justify-center p-4">
+              <div
+                className="aspect-square max-h-[45vh] w-full flex items-center justify-center p-4 cursor-grab active:cursor-grabbing select-none"
+                style={{ touchAction: images.length > 1 ? "pan-y" : "auto" }}
+                onTouchStart={(e) => {
+                  if (images.length < 2) return;
+                  onSwipeStart(e.changedTouches[0].clientX);
+                }}
+                onTouchEnd={(e) => {
+                  if (images.length < 2) return;
+                  onSwipeEnd(e.changedTouches[0].clientX);
+                }}
+                onMouseDown={(e) => {
+                  if (images.length < 2) return;
+                  onSwipeStart(e.clientX);
+                }}
+                onMouseUp={(e) => {
+                  if (images.length < 2) return;
+                  onSwipeEnd(e.clientX);
+                }}
+                onMouseLeave={() => {
+                  swipeStartXRef.current = null;
+                }}
+              >
                 <img
                   src={mainImage}
                   alt={product.name}
                   className="max-w-full max-h-full object-contain rounded-xl"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                 />
               </div>
               {images.length > 1 && (
                 <>
                   <button
                     type="button"
-                    onClick={() => setImageIndex((i) => (i - 1 + images.length) % images.length)}
+                    onClick={showPrevImage}
                     className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
                     aria-label="תמונה קודמת"
                   >
@@ -1901,7 +2027,7 @@ function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp,
                   </button>
                   <button
                     type="button"
-                    onClick={() => setImageIndex((i) => (i + 1) % images.length)}
+                    onClick={showNextImage}
                     className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
                     aria-label="תמונה הבאה"
                   >

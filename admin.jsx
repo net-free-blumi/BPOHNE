@@ -45,39 +45,173 @@ function getLoginErrorHebrew(code, message) {
 const IMGBB_API_KEY = typeof window !== "undefined" && window.IMGBB_API_KEY ? window.IMGBB_API_KEY : "";
 // אותו API של ביביפ בוט – Gemini דרך Cloudflare Worker (מוגדר ב-admin.html כמו ב-index.html)
 const GEMINI_PROXY_URL = typeof window !== "undefined" && window.GEMINI_PROXY_URL ? window.GEMINI_PROXY_URL : "";
+// גיבוי אופציונלי (Worker נוסף / מפתח נוסף) – מופעל אוטומטית רק אם הראשי נופל
+const GEMINI_PROXY_URL_BACKUP = typeof window !== "undefined" && window.GEMINI_PROXY_URL_BACKUP ? window.GEMINI_PROXY_URL_BACKUP : "";
 
 function generateSku(prefix) {
   const num = Math.floor(1000 + Math.random() * 9000);
   return (prefix || "") + String(num);
 }
 
-async function callGeminiAdmin(prompt, systemInstruction) {
-  if (!GEMINI_PROXY_URL) throw new Error("לא הוגדר GEMINI_PROXY_URL");
-  const res = await fetch(GEMINI_PROXY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, systemInstruction }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || res.statusText);
-  return data.text || "";
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** משתמש באותו Gemini של ביביפ בוט – מחזיר המלצות למוצר (תיאור, תגית, תגיות) בסגנון ביפון */
+function isGeminiOverloadMessage(msg) {
+  const m = String(msg || "").toLowerCase();
+  return (
+    m.includes("high demand") ||
+    m.includes("spikes in demand") ||
+    m.includes("resource_exhausted") ||
+    m.includes("quota") ||
+    m.includes("429") ||
+    m.includes("503") ||
+    m.includes("temporarily unavailable")
+  );
+}
+
+function isRetryableAiError(err) {
+  const status = Number(err?.status || 0);
+  if (status === 408 || status === 409 || status === 425 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
+    return true;
+  }
+  const m = String(err?.message || "").toLowerCase();
+  return (
+    isGeminiOverloadMessage(m) ||
+    m.includes("network") ||
+    m.includes("failed to fetch") ||
+    m.includes("timeout") ||
+    m.includes("temporarily")
+  );
+}
+
+function isHardQuotaExceeded(err) {
+  const m = String(err?.message || "").toLowerCase();
+  return (
+    m.includes("quota exceeded") ||
+    m.includes("free_tier_requests") ||
+    m.includes("billing details") ||
+    m.includes("limit:")
+  );
+}
+
+function extractRetryAfterMs(err) {
+  const message = String(err?.message || "");
+  const secMatch = message.match(/retry in\s+([\d.]+)\s*s/i);
+  if (secMatch && secMatch[1]) {
+    const secs = Number(secMatch[1]);
+    if (Number.isFinite(secs) && secs > 0) {
+      return Math.min(Math.ceil(secs * 1000) + 350, 45000);
+    }
+  }
+  const msMatch = message.match(/retry in\s+(\d+)\s*ms/i);
+  if (msMatch && msMatch[1]) {
+    const ms = Number(msMatch[1]);
+    if (Number.isFinite(ms) && ms > 0) {
+      return Math.min(ms + 350, 45000);
+    }
+  }
+  return null;
+}
+
+async function callGeminiAdmin(prompt, systemInstruction) {
+  if (!GEMINI_PROXY_URL) throw new Error("לא הוגדר GEMINI_PROXY_URL");
+  const endpoints = [GEMINI_PROXY_URL, GEMINI_PROXY_URL_BACKUP].filter(Boolean);
+  let lastError = null;
+
+  for (let endpointIndex = 0; endpointIndex < endpoints.length; endpointIndex++) {
+    const endpoint = endpoints[endpointIndex];
+    const maxAttempts = endpointIndex === 0 ? 4 : 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, systemInstruction }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data.error || data.message || res.statusText || `HTTP ${res.status}`;
+          const e = new Error(msg);
+          e.status = res.status;
+          throw e;
+        }
+        if (!data.text) throw new Error("לא התקבלה תשובה מה-AI");
+        return data.text;
+      } catch (err) {
+        lastError = err;
+        const hardQuota = isHardQuotaExceeded(err);
+        const retryable = isRetryableAiError(err);
+        const hasMoreAttemptsHere = attempt < maxAttempts;
+
+        // נגמרה מכסה: ננסה עוד כמה בדיקות מהירות (בלי המתנות ארוכות),
+        // ואז נעבור לגיבוי/נחזיר שגיאה.
+        if (hardQuota) {
+          if (hasMoreAttemptsHere) {
+            const quickProbeMs = 280 + Math.floor(Math.random() * 320); // 280-600ms
+            await sleep(quickProbeMs);
+            continue;
+          }
+          if (endpointIndex < endpoints.length - 1) {
+            console.warn("AI quota still exceeded after quick probes, switching to backup endpoint...");
+            break;
+          }
+          throw new Error("מכסת ה-AI הזמינה כרגע הסתיימה אחרי כמה בדיקות מהירות. נסה שוב בעוד כמה שניות, או הגדר endpoint גיבוי.");
+        }
+
+        if (retryable && hasMoreAttemptsHere) {
+          const serverRetryMs = extractRetryAfterMs(err);
+          const fallbackBackoffMs = 700 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 250);
+          const cappedServerMs = serverRetryMs != null ? Math.min(serverRetryMs, 2500) : null;
+          const waitMs = cappedServerMs != null ? Math.max(cappedServerMs, fallbackBackoffMs) : fallbackBackoffMs;
+          await sleep(waitMs);
+          continue;
+        }
+        if (retryable && endpointIndex < endpoints.length - 1) {
+          console.warn("Primary AI endpoint overloaded/unavailable, switching to backup endpoint...");
+          break;
+        }
+        throw err;
+      }
+    }
+  }
+
+  if (isRetryableAiError(lastError)) {
+    throw new Error("יש עומס זמני על ה-AI כרגע (כולל גיבוי). נסה שוב בעוד כמה שניות.");
+  }
+  throw lastError || new Error("שגיאה בקריאת AI");
+}
+
+/** משתמש באותו Gemini של ביביפ בוט – מחזיר המלצות למוצר (שם, תיאור, תגית, תגיות) בסגנון ביפון */
 async function suggestProductWithAI(productName) {
   if (!GEMINI_PROXY_URL || !productName || !String(productName).trim()) return null;
   const name = String(productName).trim();
   const systemInstruction = `אתה עוזר לחנות ביפון תקשורת סלולרית – סניפים בבית שמש וביתר. תחזיר רק JSON תקני, בלי טקסט לפני או אחרי.
 סגנון התיאורים: משפט פתיחה על המוצר, שורות עם ✔️ או ✅ (ביצועים, מסך, מצלמה, נפח אחסון). לסיים ב"זמין במבחר צבעים" אם מתאים.
 תגית מבצע: קצר – "מבצע חם!", "יחידה אחרונה במלאי", "במחיר מיוחד".
-תגיות: מותג, דגם, נפח, מופרדות בפסיק.`;
-  const prompt = `המוצר/מכשיר: "${name}". החזר JSON עם המפתחות בלבד (עברית): description (תיאור שיווקי עם ✔️), badge (תגית מבצע קצרה), tags (מחרוזת תגיות בפסיקים), priceSuggestion (מספר או null).`;
+תגיות: מותג, דגם, נפח, מופרדות בפסיק.
+nameSuggestion צריך להיות ברור, מסחרי וקצר. עדיפות לעברית, אבל מותר לשלב דגם באנגלית (לדוגמה: "סמסונג גלקסי S26 אולטרה 512GB").
+מותר להוסיף אייקון עדין אחד בתחילת nameSuggestion כשזה מתאים (למשל 🎧 לאוזניות או 📱 לסמארטפון/טאבלט), בלי להגזים.`;
+  const prompt = `המוצר/מכשיר: "${name}". החזר JSON עם המפתחות בלבד: nameSuggestion (שם מוצר ברור ומסחרי, עדיפות עברית עם אפשרות לשילוב אנגלית לדגם), description (תיאור שיווקי עם ✔️), badge (תגית מבצע קצרה), tags (מחרוזת תגיות בפסיקים), priceSuggestion (מספר או null).`;
   try {
     const raw = await callGeminiAdmin(prompt, systemInstruction);
     const jsonMatch = (raw || "").match(/\{[\s\S]*\}/);
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
     if (parsed && typeof parsed.description === "string") {
+      let nameSuggestion = typeof parsed.nameSuggestion === "string" ? parsed.nameSuggestion.trim() : "";
+
+      // אייקון עדין בתחילת השם (רק אם חסר אייקון לגמרי)
+      if (nameSuggestion && !/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(nameSuggestion)) {
+        const lower = nameSuggestion.toLowerCase();
+        if (lower.includes("airpods") || lower.includes("earbuds") || lower.includes("אוזניות") || lower.includes("headphones")) {
+          nameSuggestion = `🎧 ${nameSuggestion}`;
+        } else if (lower.includes("tablet") || lower.includes("טאבלט") || lower.includes("iphone") || lower.includes("galaxy") || lower.includes("סמסונג") || lower.includes("שיאומי")) {
+          nameSuggestion = `📱 ${nameSuggestion}`;
+        }
+      }
       return {
+        nameSuggestion,
         description: parsed.description,
         badge: typeof parsed.badge === "string" ? parsed.badge : "",
         tagsText: Array.isArray(parsed.tags) ? parsed.tags.join(", ") : (parsed.tags || ""),
@@ -200,7 +334,8 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (email === "bp0527151000@gmail.com" && password === "123456") {
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    if (normalizedEmail === "bp0527151000@gmail.com" && password === "123456") {
       onLogin();
       return;
     }
@@ -214,7 +349,7 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
     }
     setLoading(true);
     try {
-      await auth.signInWithEmailAndPassword(email.trim(), password);
+      await auth.signInWithEmailAndPassword(normalizedEmail, password);
       onLogin();
     } catch (err) {
       setLoading(false);
@@ -253,7 +388,16 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">אימייל</label>
-            <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); if (onClearInitialError) onClearInitialError(); }} className="w-full border rounded-lg p-3" placeholder="admin@example.com" required autoFocus={!useFirebase} />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(""); if (onClearInitialError) onClearInitialError(); }}
+              onBlur={() => setEmail((v) => (v || "").trim().toLowerCase())}
+              className="w-full border rounded-lg p-3"
+              placeholder="admin@example.com"
+              required
+              autoFocus={!useFirebase}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">סיסמה</label>
@@ -1217,6 +1361,7 @@ function PackageFormModal({ pkg, onSave, onClose }) {
 function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [previewProduct, setPreviewProduct] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dropTargetIndex, setDropTargetIndex] = useState(null);
   const db = getDb();
@@ -1337,14 +1482,16 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
                 <input type="checkbox" checked={!!p.featured} onChange={() => toggleProductFeatured(p)} className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600" onClick={(e) => e.stopPropagation()} />
                 <span className="text-sm font-medium text-slate-600 group-hover:text-amber-700">במבצע מומלץ</span>
               </label>
-              <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
-                <button onClick={() => { setEditing(p); setShowForm(true); }} className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 text-sm"><Edit2 /> ערוך</button>
-                <button onClick={() => onDeleteRequest(p)} className="flex-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 text-sm"><Trash2 /> מחק</button>
+              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+                <button onClick={() => setPreviewProduct(p)} className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 text-sm">👁 תצוגה</button>
+                <button onClick={() => { setEditing(p); setShowForm(true); }} className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 text-sm"><Edit2 /> ערוך</button>
+                <button onClick={() => onDeleteRequest(p)} className="px-3 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 text-sm"><Trash2 /> מחק</button>
               </div>
             </div>
           </div>
         ))}
       </div>
+      {previewProduct && <ProductPreviewModal product={previewProduct} onClose={() => setPreviewProduct(null)} />}
       {showForm && <ProductFormModal key={editing?.id ?? "new"} product={editing} onSave={(data) => { saveProduct(data); setEditing(null); setShowForm(false); }} onClose={() => { setEditing(null); setShowForm(false); }} showToast={showToast} />}
     </div>
   );
@@ -1372,12 +1519,13 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
       if (suggested) {
         setForm((f) => ({
           ...f,
+          name: suggested.nameSuggestion || f.name,
           description: suggested.description || f.description,
           badge: suggested.badge || f.badge,
           tagsText: suggested.tagsText || f.tagsText,
           price: (f.price !== "" && f.price != null) ? f.price : (suggested.priceSuggestion != null ? String(suggested.priceSuggestion) : f.price),
         }));
-        if (showToast) showToast("המידע הושלם לפי המלצת AI – ערוך אם צריך", "success");
+        if (showToast) showToast("ה‑AI שיפר גם את שם המוצר ומילא פרטים – אפשר לערוך ידנית", "success");
       } else {
         if (showToast) showToast("לא התקבלה תשובה מתאימה מ-AI. נסה שוב או מלא ידנית.", "error");
       }
@@ -1475,6 +1623,98 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 border-2 border-slate-300 rounded-xl py-3 font-bold hover:bg-slate-50">ביטול</button>
           <button onClick={handleSave} disabled={uploading} className="flex-1 bg-[#1e3a5f] text-white rounded-xl py-3 font-bold disabled:opacity-50">שמור והוסף לאתר</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductPreviewModal({ product, onClose }) {
+  const images = Array.isArray(product?.images) ? product.images.filter(Boolean) : [];
+  const tags = Array.isArray(product?.tags) ? product.tags : [];
+  const [imageIndex, setImageIndex] = useState(0);
+  const mainImage = images[imageIndex];
+  const hasMany = images.length > 1;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60" onClick={onClose}>
+      <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[92vh] border-2 border-slate-200 shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-100">
+          <h3 className="font-bold text-slate-800">תצוגה מקדימה (כמו באתר)</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X /></button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[420px] relative m-4 sm:m-6">
+            {mainImage ? (
+              <div className="relative w-full h-56 sm:h-72 md:h-80 bg-slate-100 flex items-center justify-center">
+                <img src={mainImage} alt={product?.name || ""} className="w-full h-full object-contain" />
+                {hasMany && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setImageIndex((i) => (i - 1 + images.length) % images.length)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
+                      aria-label="תמונה קודמת"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageIndex((i) => (i + 1) % images.length)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
+                      aria-label="תמונה הבאה"
+                    >
+                      ›
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="w-full h-56 sm:h-72 bg-slate-100 flex items-center justify-center text-4xl text-slate-300">📱</div>
+            )}
+            {hasMany && (
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                <div className="flex gap-2 flex-wrap justify-center">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setImageIndex(idx)}
+                      className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition ${
+                        idx === imageIndex ? "border-[#1e3a5f] ring-2 ring-[#1e3a5f]/30" : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {product?.badge && (
+              <span className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-lg bg-orange-500 text-white text-xs font-bold shadow">
+                {product.badge}
+              </span>
+            )}
+            <div className="p-4 sm:p-6 flex-grow flex flex-col min-h-0">
+              <h4 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 leading-tight">{product?.name || "מוצר"}</h4>
+              {product?.sku && <p className="text-xs text-slate-400 mb-3">מק״ט: <span className="font-mono tracking-widest">{product.sku}</span></p>}
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {tags.map((tag, idx) => (
+                    <span key={idx} className="text-xs px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 font-medium">{tag}</span>
+                  ))}
+                </div>
+              )}
+              {product?.description && <p className="text-sm sm:text-base text-gray-600 whitespace-pre-line leading-relaxed mb-6">{product.description}</p>}
+              <div className="mt-auto pt-2 flex flex-wrap justify-between items-center gap-3">
+                {product?.price != null && product.price !== "" && (
+                  <div className="text-[#1e3a5f] font-extrabold text-2xl">₪{formatPrice(product.price)}</div>
+                )}
+                <button className="px-5 py-3 rounded-xl bg-green-500 text-white text-sm font-bold flex items-center gap-2 shrink-0" type="button">
+                  💬 לפרטים
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

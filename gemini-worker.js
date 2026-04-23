@@ -7,6 +7,8 @@
  * 3. לחץ "Deploy" ואז "Edit code"
  * 4. מחק את הקוד והדבק את כל הקובץ הזה (מהשורה export default עד הסוף)
  * 5. Settings → Variables → Add variable: GEMINI_API_KEY (Secret) – הדבק את המפתח מ-Google AI Studio
+ *    אופציונלי לגיבוי חינמי נוסף: GROQ_API_KEY (Secret)
+ *    אופציונלי: GROQ_MODEL (plain text), ברירת מחדל: llama-3.1-8b-instant
  * 6. Save and Deploy
  * 7. העתק את כתובת ה-Worker (כמו https://gemini-proxy.שם-החשבון.workers.dev)
  * 8. באתר (index.html) הוסף: window.GEMINI_PROXY_URL = "https://הכתובת-שלך";
@@ -17,6 +19,42 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
+
+function isRetryableGeminiFailure(status, msg) {
+  const m = String(msg || "").toLowerCase();
+  return (
+    status === 408 ||
+    status === 409 ||
+    status === 425 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    m.includes("high demand") ||
+    m.includes("spikes in demand") ||
+    m.includes("resource_exhausted") ||
+    m.includes("quota") ||
+    m.includes("temporarily unavailable")
+  );
+}
+
+function isRetryableGroqFailure(status, msg) {
+  const m = String(msg || "").toLowerCase();
+  return (
+    status === 408 ||
+    status === 409 ||
+    status === 425 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    m.includes("rate limit") ||
+    m.includes("quota") ||
+    m.includes("temporarily")
+  );
+}
 
 export default {
   async fetch(request, env) {
@@ -38,6 +76,8 @@ export default {
         headers: { "Content-Type": "application/json", ...CORS },
       });
     }
+    const groqApiKey = env.GROQ_API_KEY;
+    const groqModel = env.GROQ_MODEL || "llama-3.1-8b-instant";
 
     let prompt, systemInstruction;
     try {
@@ -51,7 +91,6 @@ export default {
       });
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
@@ -61,23 +100,98 @@ export default {
     }
 
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
+      const modelCandidates = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+      ];
+      let lastError = null;
 
-      if (!res.ok) {
-        return new Response(
-          JSON.stringify({ error: data.error?.message || "Gemini error" }),
-          { status: res.status, headers: { "Content-Type": "application/json", ...CORS } }
-        );
+      for (let i = 0; i < modelCandidates.length; i++) {
+        const model = modelCandidates[i];
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "לא התקבלה תשובה.";
+          return new Response(JSON.stringify({ text, model }), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...CORS },
+          });
+        }
+
+        const errMsg = data.error?.message || "Gemini error";
+        lastError = { status: res.status, msg: errMsg, model };
+        const canTryNextModel = i < modelCandidates.length - 1;
+        if (!(isRetryableGeminiFailure(res.status, errMsg) && canTryNextModel)) {
+          return new Response(JSON.stringify({ error: errMsg, model }), {
+            status: res.status,
+            headers: { "Content-Type": "application/json", ...CORS },
+          });
+        }
       }
 
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "לא התקבלה תשובה.";
-      return new Response(JSON.stringify({ text }), {
-        status: 200,
+      // Gemini נכשל בכל המודלים: ניסיון גיבוי ל-Groq (אם הוגדר)
+      if (groqApiKey) {
+        try {
+          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${groqApiKey}`,
+            },
+            body: JSON.stringify({
+              model: groqModel,
+              temperature: 0.7,
+              max_tokens: 1024,
+              response_format: { type: "json_object" },
+              messages: [
+                ...(systemInstruction ? [{ role: "system", content: systemInstruction }] : []),
+                { role: "user", content: prompt },
+              ],
+            }),
+          });
+          const groqData = await groqRes.json().catch(() => ({}));
+          if (groqRes.ok) {
+            const text = groqData?.choices?.[0]?.message?.content || "לא התקבלה תשובה.";
+            return new Response(JSON.stringify({ text, model: groqModel, provider: "groq" }), {
+              status: 200,
+              headers: { "Content-Type": "application/json", ...CORS },
+            });
+          }
+          const groqErrMsg = groqData?.error?.message || "Groq error";
+          const groqRetryable = isRetryableGroqFailure(groqRes.status, groqErrMsg);
+          const baseErr = lastError?.msg || "Gemini overload";
+          return new Response(JSON.stringify({
+            error: groqRetryable ? `${baseErr} | Groq overloaded` : `${baseErr} | ${groqErrMsg}`,
+            model: lastError?.model || "unknown",
+            fallbackModel: groqModel,
+          }), {
+            status: groqRetryable ? 503 : (groqRes.status || 503),
+            headers: { "Content-Type": "application/json", ...CORS },
+          });
+        } catch (groqErr) {
+          return new Response(JSON.stringify({
+            error: `${lastError?.msg || "Gemini overload"} | Groq request failed: ${String(groqErr?.message || groqErr)}`,
+            model: lastError?.model || "unknown",
+            fallbackModel: groqModel,
+          }), {
+            status: 503,
+            headers: { "Content-Type": "application/json", ...CORS },
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({
+        error: lastError?.msg || "Gemini overload",
+        model: lastError?.model || "unknown",
+      }), {
+        status: lastError?.status || 503,
         headers: { "Content-Type": "application/json", ...CORS },
       });
     } catch (err) {
