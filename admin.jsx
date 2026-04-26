@@ -45,605 +45,105 @@ function getLoginErrorHebrew(code, message) {
 const IMGBB_API_KEY = typeof window !== "undefined" && window.IMGBB_API_KEY ? window.IMGBB_API_KEY : "";
 // אותו API של ביביפ בוט – Gemini דרך Cloudflare Worker (מוגדר ב-admin.html כמו ב-index.html)
 const GEMINI_PROXY_URL = typeof window !== "undefined" && window.GEMINI_PROXY_URL ? window.GEMINI_PROXY_URL : "";
-// גיבוי אופציונלי (Worker נוסף / מפתח נוסף) – מופעל אוטומטית רק אם הראשי נופל
-const GEMINI_PROXY_URL_BACKUP = typeof window !== "undefined" && window.GEMINI_PROXY_URL_BACKUP ? window.GEMINI_PROXY_URL_BACKUP : "";
 
 function generateSku(prefix) {
   const num = Math.floor(1000 + Math.random() * 9000);
   return (prefix || "") + String(num);
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isGeminiOverloadMessage(msg) {
-  const m = String(msg || "").toLowerCase();
-  return (
-    m.includes("high demand") ||
-    m.includes("spikes in demand") ||
-    m.includes("resource_exhausted") ||
-    m.includes("quota") ||
-    m.includes("429") ||
-    m.includes("503") ||
-    m.includes("temporarily unavailable")
-  );
-}
-
-function isRetryableAiError(err) {
-  const status = Number(err?.status || 0);
-  if (status === 408 || status === 409 || status === 425 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
-    return true;
-  }
-  const m = String(err?.message || "").toLowerCase();
-  return (
-    isGeminiOverloadMessage(m) ||
-    m.includes("network") ||
-    m.includes("failed to fetch") ||
-    m.includes("timeout") ||
-    m.includes("temporarily")
-  );
-}
-
-function isHardQuotaExceeded(err) {
-  const m = String(err?.message || "").toLowerCase();
-  return (
-    m.includes("quota exceeded") ||
-    m.includes("free_tier_requests") ||
-    m.includes("billing details") ||
-    m.includes("limit:")
-  );
-}
-
-function extractRetryAfterMs(err) {
-  const message = String(err?.message || "");
-  const secMatch = message.match(/retry in\s+([\d.]+)\s*s/i);
-  if (secMatch && secMatch[1]) {
-    const secs = Number(secMatch[1]);
-    if (Number.isFinite(secs) && secs > 0) {
-      return Math.min(Math.ceil(secs * 1000) + 350, 45000);
-    }
-  }
-  const msMatch = message.match(/retry in\s+(\d+)\s*ms/i);
-  if (msMatch && msMatch[1]) {
-    const ms = Number(msMatch[1]);
-    if (Number.isFinite(ms) && ms > 0) {
-      return Math.min(ms + 350, 45000);
-    }
-  }
-  return null;
-}
-
-function normalizeAiNameSuggestion(originalName, suggestedName) {
-  const original = String(originalName || "").trim();
-  let name = String(suggestedName || "").trim() || original;
-  const originalClean = sanitizeProductNameForAi(original) || original;
-
-  // לא מוסיפים "Pro/Ultra/Plus/FE/Max" אם זה לא הופיע בקלט המקורי
-  const marketingSuffixes = ["pro", "ultra", "plus", "fe", "max", "פרו", "אולטרה", "פלוס"];
-  for (const suffix of marketingSuffixes) {
-    const inOriginal = new RegExp(`\\b${suffix}\\b`, "i").test(original);
-    if (!inOriginal) {
-      const re = new RegExp(`\\s+[-–—]?\\s*\\b${suffix}\\b`, "ig");
-      name = name.replace(re, "");
-    }
-  }
-
-  // אם שם המקור כולל דגם באנגלית (למשל Galaxy A56 / Soundcore P41i) – נשמר אותו
-  const modelMatch = original.match(/\b([A-Za-z][A-Za-z0-9-]*\s?[A-Za-z]?\d{1,4}[A-Za-z0-9/-]*)\b/);
-  if (modelMatch && !new RegExp(modelMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(name)) {
-    name = `${modelMatch[1]} ${name}`;
-  }
-
-  // מוסיפים "כשר" רק אם המשתמש כתב במפורש "כשר"
-  if (/\bכשר\b/i.test(original) && !/\bכשר\b/i.test(name)) {
-    name = `${name} כשר`;
-  }
-
-  // אייקון עדין בתחילת השם
-  if (!/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(name)) {
-    const lower = `${originalClean} ${name}`.toLowerCase();
-    if (lower.includes("airpods") || lower.includes("earbuds") || lower.includes("אוזניות") || lower.includes("headphones")) {
-      name = `🎧 ${name}`;
-    } else {
-      name = `📱 ${name}`;
-    }
-  }
-
-  const stripEmoji = (s) => String(s || "").replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, "").trim();
-  const o = stripEmoji(originalClean).toLowerCase();
-  const n = stripEmoji(name).toLowerCase();
-  const oWords = new Set(o.split(/\s+/).filter(Boolean));
-  const nWords = n.split(/\s+/).filter(Boolean);
-  const overlap = nWords.filter((w) => oWords.has(w)).length;
-  const overlapRatio = nWords.length ? overlap / nWords.length : 0;
-
-  // אם ה-AI סטה מהשם המקורי – נשמור על שם המקור כמעט לחלוטין
-  if (overlapRatio < 0.6 || !n.includes(o.split(/\s+/)[0] || "")) {
-    const base = originalClean.replace(/\s+/g, " ").trim();
-    if (!/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(base)) {
-      const lower = base.toLowerCase();
-      return (lower.includes("airpods") || lower.includes("earbuds") || lower.includes("אוזניות") || lower.includes("headphones") ? `🎧 ${base}` : `📱 ${base}`).trim();
-    }
-    return base;
-  }
-
-  return name.replace(/\s+/g, " ").trim();
-}
-
-function filterBulletByOriginalSpecs(originalName, line, allowedSpecsText = "") {
-  const original = String(originalName || "").toLowerCase();
-  const allowedText = String(allowedSpecsText || "").toLowerCase();
-  const strictMode = allowedText.trim().length > 0;
-  const knownSource = `${original}\n${allowedText}`;
-  const l = String(line || "");
-  const lower = l.toLowerCase();
-  const includesInOriginal = (rx) => rx.test(knownSource);
-
-  const riskyRules = [
-    { claim: /(5g|דור\s*5)/i, allow: /(5g|דור\s*5)/i },
-    { claim: /(4g|דור\s*4|volte)/i, allow: /(4g|דור\s*4|volte)/i },
-    { claim: /(ווידאו|וידאו|video|4k)/i, allow: /(ווידאו|וידאו|video|4k)/i },
-    { claim: /(wifi|wi-?fi)/i, allow: /(wifi|wi-?fi)/i },
-    { claim: /(bluetooth|בלוטוס)/i, allow: /(bluetooth|בלוטוס)/i },
-    { claim: /(ram|gb ram|זיכרון\s*ram)/i, allow: /(ram|gb ram|זיכרון\s*ram)/i },
-    { claim: /(mp|megapixel|מצלמה)/i, allow: /(mp|megapixel|מצלמה)/i },
-    { claim: /(ipx|ip\d)/i, allow: /(ipx|ip\d)/i },
-    { claim: /(mAh|mah|watt|טעינה\s*מהירה|20w|25w|45w)/i, allow: /(mAh|mah|watt|טעינה\s*מהירה|20w|25w|45w)/i },
-    { claim: /(android|ios|miui|one ui)/i, allow: /(android|ios|miui|one ui)/i },
-    { claim: /(מסך|inch|אינץ|hd\+?|fhd\+?|amoled|oled|120hz|90hz)/i, allow: /(מסך|inch|אינץ|hd\+?|fhd\+?|amoled|oled|120hz|90hz)/i },
-    { claim: /(מעבד|processor|snapdragon|exynos|dimensity|octa|גרעינ|ליבות)/i, allow: /(מעבד|processor|snapdragon|exynos|dimensity|octa|גרעינ|ליבות)/i },
-    { claim: /(microsd|micro\s*sd|sd card|כרטיס\s*זיכרון)/i, allow: /(microsd|micro\s*sd|sd card|כרטיס\s*זיכרון)/i },
-    { claim: /(טעינה\s*אלחוטית|wireless\s*charging|qi)/i, allow: /(טעינה\s*אלחוטית|wireless\s*charging|qi)/i },
-    { claim: /(knox|סמסונג\s*knox)/i, allow: /(knox|סמסונג\s*knox)/i },
-  ];
-
-  // במצב קשיח (יש מפרט ידני) לא נאפשר טענה שלא הופיעה במקור.
-  if (strictMode) {
-    for (const rule of riskyRules) {
-      if (rule.claim.test(lower) && !includesInOriginal(rule.allow)) {
-        return null;
-      }
-    }
-  }
-
-  // חוסמים מספרים טכניים שלא הופיעו בקלט המקורי (למשל 6 אינץ', 15W, 8 ליבות)
-  const originalNums = new Set((knownSource.match(/\d+(?:[./]\d+)?/g) || []).map((n) => n.replace(",", ".")));
-  const bulletNums = (lower.match(/\d+(?:[./]\d+)?/g) || []).map((n) => n.replace(",", "."));
-  const technicalContext = /(מסך|inch|אינץ|hz|mah|w|טעינה|ram|gb|tb|mp|מעבד|גרעינ|ליבות|android|ios|ip\d|ipx|microsd|bluetooth|wifi|5g|4g|דור)/i;
-  if (strictMode && technicalContext.test(lower)) {
-    for (const n of bulletNums) {
-      if (!originalNums.has(n)) {
-        return null;
-      }
-    }
-  }
-
-  // גם במצב לא-קשיח: חוסמים טענות שיווק חלשות/לא מקצועיות
-  const weakClaims = [
-    /תוכן חסר ספק/i,
-    /צלחת עסקאות/i,
-    /שירות מקצועי ומקסימלי/i,
-    /תפריט קל ומיידי/i,
-    /תקשורת סלולרית ברמה גבוהה/i,
-  ];
-  if (weakClaims.some((rx) => rx.test(lower))) return null;
-
-  return l;
-}
-
-function normalizeTechSpecsText(raw) {
-  return String(raw || "")
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((l) => l.replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .map((l) => l.replace(/^[-•✔✅]\s*/, ""))
-    .slice(0, 12);
-}
-
-function injectKnownSpecsIntoDescription(descriptionText, techSpecsText) {
-  const specs = normalizeTechSpecsText(techSpecsText);
-  if (specs.length === 0) return descriptionText;
-  const desc = String(descriptionText || "").trim();
-  if (!desc) return `מפרט טכני עיקרי:\n${specs.map((s) => `✔️ ${s}`).join("\n")}\nזמין במבחר צבעים ביפון תקשורת סלולרית.`;
-
-  const lines = desc.split("\n");
-  const intro = lines[0] || "מפרט טכני עיקרי:";
-  const bullets = lines.slice(1).filter(Boolean);
-  const existingLower = bullets.join("\n").toLowerCase();
-  const missingSpecs = specs.filter((s) => !existingLower.includes(s.toLowerCase())).slice(0, 6);
-  if (missingSpecs.length === 0) return desc;
-  const mergedBullets = [...bullets, ...missingSpecs.map((s) => `✔️ ${s}`)];
-  return `${intro}\n${mergedBullets.join("\n")}`;
-}
-
-function normalizeAiDescription(originalName, rawDescription, allowedSpecsText = "") {
-  const original = String(originalName || "");
-  let text = String(rawDescription || "").replace(/\r\n/g, "\n").trim();
-  if (!text) return text;
-
-  // מסירים טקסטים בעייתיים
-  const blockedPhrases = [
-    /אלטרנטיבה\s*ל[-\s]*iphone/ig,
-    /alternative\s*to\s*iphone/ig,
-  ];
-  for (const rx of blockedPhrases) text = text.replace(rx, "");
-
-  // מסירים מטבעות לא רלוונטיים
-  text = text.replace(/\b\d[\d,.\s]*\s?(yen|usd|dollar|eur|euro)\b/ig, "");
-  text = text.replace(/\b(yen|usd|dollar|eur|euro)\s?\d[\d,.\s]*\b/ig, "");
-
-  const cleanLine = (line) =>
-    line
-      .replace(/\s+/g, " ")
-      .replace(/\s+[,.،:;!?]/g, (m) => m.trim())
-      .trim();
-
-  // מפרידים לבולטים לפי ✔️/✅
-  const parts = text
-    .split(/(?:✔️|✅)/g)
-    .map((p) => cleanLine(p))
-    .filter(Boolean);
-
-  let intro = parts.shift() || "";
-  intro = intro.replace(/[.]\s*$/, "");
-
-  let bullets = parts
-    .map((p) => p.replace(/^[-–—•]\s*/, ""))
-    .map((p) => cleanLine(p))
-    .filter(Boolean);
-
-  // אם אין בולטים מסודרים, מנסים לפצל לפי משפטים
-  if (bullets.length < 3) {
-    const sentences = text
-      .split(/\.\s+|\n+/g)
-      .map((s) => cleanLine(s))
-      .filter(Boolean);
-    if (!intro && sentences.length) intro = sentences.shift();
-    bullets = sentences;
-  }
-
-  // מוסיפים שורת כשר רק אם המשתמש כתב במפורש "כשר"
-  if (/\bכשר\b/i.test(original) && !/\bכשר\b/i.test(`${intro}\n${bullets.join("\n")}`)) {
-    bullets.unshift("תמיכה ושימוש מותאמים למכשיר כשר בהתאם לדגם.");
-  }
-
-  // מגבילים אורך ומנקים כפילויות קצרות
-  const seen = new Set();
-  bullets = bullets
-    .filter((b) => b.length >= 8)
-    .map((b) => filterBulletByOriginalSpecs(original, b, allowedSpecsText))
-    .filter(Boolean)
-    .filter((b) => {
-      const key = b.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 8);
-
-  if (!intro) intro = `מכשיר איכותי עם חוויית שימוש נוחה ואמינה ליום-יום.`;
-  if (bullets.length < 4) {
-    bullets.push("ביצועים יציבים ומהירים לשימוש יומיומי.");
-    bullets.push("נוחות שימוש גבוהה לאורך זמן.");
-    bullets.push("תמורה מצוינת למחיר ושירות מקצועי בביפון.");
-  }
-
-  const normalized = `${intro}\n${bullets.map((b) => `✔️ ${b}`).join("\n")}\nזמין במבחר צבעים ביפון תקשורת סלולרית.`;
-  return injectKnownSpecsIntoDescription(normalized, allowedSpecsText);
-}
-
-function normalizeAiTags(originalName, tagsInput, allowedSpecsText = "") {
-  const original = `${String(originalName || "").toLowerCase()}\n${String(allowedSpecsText || "").toLowerCase()}`;
-  const rawTags = Array.isArray(tagsInput) ? tagsInput : String(tagsInput || "").split(",");
-  const clean = (s) => String(s || "").replace(/\s+/g, " ").trim();
-  const tags = rawTags.map(clean).filter(Boolean);
-
-  const allowedOnlyIfInOriginal = [
-    /(5g|דור\s*5)/i,
-    /(4g|דור\s*4|volte)/i,
-    /(ווידאו|וידאו|video|4k)/i,
-    /(wifi|wi-?fi)/i,
-    /(ram|gb ram|זיכרון)/i,
-    /(מצלמה|mp)/i,
-  ];
-
-  const result = [];
-  const seen = new Set();
-  for (const t of tags) {
-    const lower = t.toLowerCase();
-    let allowed = true;
-    for (const rx of allowedOnlyIfInOriginal) {
-      if (rx.test(lower) && !rx.test(original)) {
-        allowed = false;
-        break;
-      }
-    }
-    if (!allowed) continue;
-    if (!seen.has(lower)) {
-      seen.add(lower);
-      result.push(t);
-    }
-  }
-  return result.slice(0, 7).join(", ");
-}
-
-function isLowQualityHebrewDescription(text) {
-  const t = String(text || "").trim();
-  if (!t) return true;
-  const lower = t.toLowerCase();
-
-  // ביטויים שמעידים על תרגום/ניסוח לא טבעי
-  const badPhrases = [
-    "שירות חזותי",
-    "האאוט",
-    "out-stream",
-    "בידיוגר",
-    "שורה, וסיכוי",
-    "תצוגה: תצוגה",
-    "תמיכה בטורבו",
-    "תוכן חסר ספק",
-    "גיים אינטרפייס",
-    "מערכת אחסון נקייה",
-    "מערכות הפעלה הנפוצות",
-    "תקשורת סלולרית ברמה גבוהה",
-    "חיישנים אופטיים משופרים",
-    "לא סופק מפרט טכני ידוע",
-  ];
-  if (badPhrases.some((p) => lower.includes(p))) return true;
-
-  const bulletCount = (t.match(/[✔✅]/g) || []).length;
-  if (bulletCount < 4) return true;
-
-  // יותר מדי כפילויות של אותה מילה -> טקסט חלש
-  const words = t.replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
-  if (words.length > 10) {
-    const freq = new Map();
-    for (const w of words) {
-      const k = w.toLowerCase();
-      freq.set(k, (freq.get(k) || 0) + 1);
-    }
-    const maxRepeat = Math.max(...freq.values());
-    if (maxRepeat >= 6) return true;
-  }
-
-  return false;
-}
-
-function buildProfessionalFallbackDescription(originalName) {
-  const n = String(originalName || "").trim();
-  const isEarbuds = /(airpods|earbuds|buds|אוזניות|headphones)/i.test(n);
-  const isTablet = /(tablet|tab|טאבלט|ipad|אייפד)/i.test(n);
-
-  if (isEarbuds) {
-    return `הכירו את ${n} – פתרון איכותי לשמע יומיומי עם נוחות גבוהה ושימוש פשוט.
-✔️ סאונד נקי וברור לשיחות, מוזיקה ותוכן יומי.
-✔️ חיבור יציב ומהיר למכשיר, עם שימוש נוח לאורך היום.
-✔️ נוחות גבוהה באוזן גם בשימוש ממושך.
-✔️ עיצוב מודרני ואיכות בנייה טובה לשימוש יום-יומי.
-✔️ מתאימות לעבודה, נסיעות ואימונים קלים.
-✔️ תמורה מצוינת למחיר ושירות מקצועי בביפון.
-זמין במבחר צבעים ביפון תקשורת סלולרית.`;
-  }
-
-  if (isTablet) {
-    return `הכירו את ${n} – טאבלט פרקטי ואמין לשימוש יומיומי בבית, בלימודים ובעבודה.
-✔️ מספק חוויית שימוש נוחה וזורמת לאורך היום.
-✔️ מתאים לצפייה בתוכן, גלישה וניהול משימות יומיומיות.
-✔️ תפעול פשוט ונוח לכל בני המשפחה.
-✔️ איכות בנייה טובה לשימוש קבוע ויציב.
-✔️ פתרון מצוין למי שמחפש טאבלט מאוזן במחיר משתלם.
-✔️ שירות ואחריות בביפון עם ליווי מקצועי.
-זמין במבחר צבעים ביפון תקשורת סלולרית.`;
-  }
-
-  return `הכירו את ${n} – סמארטפון איכותי ומאוזן שמתאים לשימוש יומיומי נוח ואמין.
-✔️ ביצועים יציבים לגלישה, הודעות, שיחות ואפליקציות יומיומיות.
-✔️ חוויית שימוש חלקה ונוחה לאורך כל היום.
-✔️ מצלמה טובה לשימוש יום-יומי ולצילום רגעים חשובים.
-✔️ נוחות אחיזה ותפעול פשוט לכל משתמש.
-✔️ תמורה מצוינת למחיר למי שמחפש מכשיר אמין.
-✔️ שירות מקצועי וליווי אישי בביפון גם אחרי הרכישה.
-זמין במבחר צבעים ביפון תקשורת סלולרית.`;
-}
-
-function sanitizeProductNameForAi(rawName) {
-  return String(rawName || "")
-    // סימוני סינון/אחריות שלא אמורים להשפיע על תוכן שיווקי
-    .replace(/\bהדרן\b/gi, "")
-    .replace(/\bי\.?\s*ח\.?\b/gi, "")
-    .replace(/\bס\.?\s*נ\.?\b/gi, "")
-    .replace(/\bאחריות\b/gi, "")
-    .replace(/\bיבואן\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function callGeminiAdmin(prompt, systemInstruction) {
+async function callGeminiAdmin(prompt, systemInstruction, { retries = 2 } = {}) {
   if (!GEMINI_PROXY_URL) throw new Error("לא הוגדר GEMINI_PROXY_URL");
-  const endpoints = [GEMINI_PROXY_URL, GEMINI_PROXY_URL_BACKUP].filter(Boolean);
-  let lastError = null;
-
-  for (let endpointIndex = 0; endpointIndex < endpoints.length; endpointIndex++) {
-    const endpoint = endpoints[endpointIndex];
-    const maxAttempts = endpointIndex === 0 ? 4 : 3;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, systemInstruction }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const msg = data.error || data.message || res.statusText || `HTTP ${res.status}`;
-          const e = new Error(msg);
-          e.status = res.status;
-          throw e;
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(GEMINI_PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, systemInstruction }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.error || res.statusText;
+        if (res.status === 429 || res.status === 503) {
+          lastErr = new Error(msg);
+          if (attempt < retries) { await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); continue; }
         }
-        if (!data.text) throw new Error("לא התקבלה תשובה מה-AI");
-        return {
-          text: data.text,
-          provider: (data.provider || "gemini").toLowerCase(),
-          model: data.model || "",
-        };
-      } catch (err) {
-        lastError = err;
-        const hardQuota = isHardQuotaExceeded(err);
-        const retryable = isRetryableAiError(err);
-        const hasMoreAttemptsHere = attempt < maxAttempts;
-
-        // נגמרה מכסה: ננסה עוד כמה בדיקות מהירות (בלי המתנות ארוכות),
-        // ואז נעבור לגיבוי/נחזיר שגיאה.
-        if (hardQuota) {
-          if (hasMoreAttemptsHere) {
-            const quickProbeMs = 280 + Math.floor(Math.random() * 320); // 280-600ms
-            await sleep(quickProbeMs);
-            continue;
-          }
-          if (endpointIndex < endpoints.length - 1) {
-            console.warn("AI quota still exceeded after quick probes, switching to backup endpoint...");
-            break;
-          }
-          throw new Error("מכסת ה-AI הזמינה כרגע הסתיימה אחרי כמה בדיקות מהירות. נסה שוב בעוד כמה שניות, או הגדר endpoint גיבוי.");
-        }
-
-        if (retryable && hasMoreAttemptsHere) {
-          const serverRetryMs = extractRetryAfterMs(err);
-          const fallbackBackoffMs = 700 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 250);
-          const cappedServerMs = serverRetryMs != null ? Math.min(serverRetryMs, 2500) : null;
-          const waitMs = cappedServerMs != null ? Math.max(cappedServerMs, fallbackBackoffMs) : fallbackBackoffMs;
-          await sleep(waitMs);
-          continue;
-        }
-        if (retryable && endpointIndex < endpoints.length - 1) {
-          console.warn("Primary AI endpoint overloaded/unavailable, switching to backup endpoint...");
-          break;
-        }
-        throw err;
+        throw new Error(msg);
       }
+      return { text: data.text || "", provider: data.provider || "gemini", model: data.model || "" };
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
   }
-
-  if (isRetryableAiError(lastError)) {
-    throw new Error("יש עומס זמני על ה-AI כרגע (כולל גיבוי). נסה שוב בעוד כמה שניות.");
-  }
-  throw lastError || new Error("שגיאה בקריאת AI");
+  throw lastErr;
 }
 
-/** משתמש באותו Gemini של ביביפ בוט – מחזיר המלצות למוצר (שם, תיאור, תגית, תגיות) בסגנון ביפון */
-async function suggestProductWithAI(productName, techSpecsText = "") {
+/** משתמש באותו Gemini של ביביפ בוט – מחזיר המלצות למוצר (תיאור, תגית, תגיות) בסגנון ביפון */
+async function suggestProductWithAI(productName, techSpecsText) {
   if (!GEMINI_PROXY_URL || !productName || !String(productName).trim()) return null;
-  const originalName = String(productName).trim();
-  const name = sanitizeProductNameForAi(originalName) || originalName;
-  const normalizedSpecs = normalizeTechSpecsText(techSpecsText);
-  const knownSpecsBlock = normalizedSpecs.join("\n");
-  const specsBlockForPrompt = knownSpecsBlock || "לא סופק מפרט טכני ידוע. אל תמציא נתונים טכניים.";
-  const hasKnownSpecs = normalizedSpecs.length > 0;
-  const systemInstruction = `אתה כותב תוכן מכירה מקצועי לחנות ביפון תקשורת סלולרית (בית שמש + ביתר).
-תחזיר JSON תקני בלבד, ללא טקסט נוסף.
-השפה: עברית שיווקית טבעית, אמינה ולא מוגזמת.
-nameSuggestion: שם מסחרי קצר וברור. שמור את הדגם כפי שהוזן (אפשר אנגלית בדגם). אל תמציא סיומות כמו Pro/Ultra/Plus/FE אם לא הופיעו בקלט.
-description: חייב להיות עשיר ומפורט:
-1) שורת פתיחה שיווקית אחת מלאה.
-2) 6-8 שורות יתרונות עם ✔️, כל שורה משפט מלא וקונקרטי.
-3) לכלול רק יתרונות הגיוניים לדגם/קטגוריה, בלי להמציא מפרט לא סביר.
-4) אל תמציא מספרים טכניים (RAM/MP/IP/IPX/mAh/W/גרסת אנדרואיד) אם לא ידועים בוודאות.
-5) לא להשתמש במטבעות זרים (YEN/USD/EUR). אם מציינים מחיר – רק ₪.
-6) כל יתרון בשורה נפרדת שמתחילה ב-✔️.
-7) אם סופק "מפרט טכני ידוע" – השתמש אך ורק בו לנתונים טכניים.
-8) אם לא סופק מפרט טכני ידוע – השתמש בידע ציבורי נפוץ של הדגם, ורק נתונים סבירים ומוכרים; אין להמציא תכונות לא אמינות.
-9) לסיים בשורה מסכמת קצרה בסגנון: "זמין במבחר צבעים ביפון תקשורת סלולרית".
-tags: מחרוזת תגיות בפסיקים, 4-7 תגיות איכותיות (מותג, דגם, קטגוריה, תכונה מרכזית).
-badge: קצר ומכירתי.`;
-  const prompt = `המוצר/מכשיר: "${name}".
-מפרט טכני ידוע (מותר להשתמש רק בו לנתונים מספריים/טכניים):
-${specsBlockForPrompt}
+  const name = String(productName).trim();
+  const hasSpecs = techSpecsText && String(techSpecsText).trim().length > 10;
+  const specsBlock = hasSpecs ? `\n\nמפרט טכני שסופק:\n${String(techSpecsText).trim()}` : "";
 
-החזר JSON עם המפתחות בלבד:
-- nameSuggestion
-- description
-- badge
-- tags (מחרוזת תגיות מופרדות בפסיק)
-- priceSuggestion (מספר או null)
-דרישה: description חייב להיות ארוך ומקצועי (פתיח + לפחות 6 שורות עם ✔️).
-${hasKnownSpecs ? "חובה לשלב כמה שיותר פרטים מהמפרט שסופק." : "חובה לכלול לפחות 4 שורות טכניות אמיתיות לדגם (למשל מצלמה/סוללה/טעינה/מסך/עמידות מים אם ידוע), בלי מילים כלליות חלשות."}`;
+  const systemInstruction = hasSpecs
+    ? `אתה עוזר לחנות ביפון תקשורת סלולרית. תחזיר רק JSON תקני, בלי טקסט לפני או אחרי.
+שם המוצר שקיבלת הוא המדויק – אל תשנה אותו, אל תוסיף Pro/Ultra/Plus/FE/SE אם הם אינם במקור.
+השתמש רק בעובדות שמופיעות במפרט הטכני שניתן. אל תמציא נתונים חסרים.
+תיאור: פסקה קצרה + כל ✔ בשורה נפרדת (אל תשים כמה ✔ באותה שורה).
+תגית: מילה אחת עד שתיים, אטרקטיבית.
+תגיות: מותג, דגם, מאפיינים עיקריים, מופרדים בפסיק.`
+    : `אתה עוזר לחנות ביפון תקשורת סלולרית. תחזיר רק JSON תקני, בלי טקסט לפני או אחרי.
+שם המוצר שקיבלת הוא המדויק – אל תשנה אותו, אל תוסיף Pro/Ultra/Plus/FE/SE אם הם אינם במקור.
+כתוב על הדגם הספציפי הזה. אם אינך בטוח בנתון טכני – דלג עליו, אל תמציא.
+תיאור: פסקה קצרה + כל ✔ בשורה נפרדת (אל תשים כמה ✔ באותה שורה).
+תגית: קצרה – "מבצע חם!", "חדש בסניפים", "יחידה אחרונה".
+תגיות: מותג, דגם, תכונות מרכזיות, מופרדות בפסיק.`;
 
-  const isRichDescription = (txt) => {
-    const t = String(txt || "");
-    const bulletCount = (t.match(/[✔✅]/g) || []).length;
-    return t.length >= 220 && bulletCount >= 6;
+  const prompt = `המוצר: "${name}".${specsBlock}\nהחזר JSON: { "description": "...", "badge": "...", "tags": "...", "priceSuggestion": null }`;
+
+  const detectPoorQuality = (text) => {
+    if (!text || text.length < 30) return true;
+    if (/\[.*?\]/.test(text) && /\b(model|device|phone|insert)\b/i.test(text)) return true;
+    const bulletLines = text.split("\n").filter((l) => l.includes("✔"));
+    const totalBullets = (text.match(/✔/g) || []).length;
+    if (totalBullets > 1 && bulletLines.length === 1) return true;
+    return false;
   };
 
-  const parseJsonSuggestion = (rawText) => {
-    const jsonMatch = (rawText || "").match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-    try {
-      return JSON.parse(jsonMatch[0]);
-    } catch {
-      return null;
-    }
-  };
+  const fixBullets = (text) =>
+    text.replace(/(✔[^✔\n]+)/g, (m) => "\n" + m.trim()).replace(/^\n/, "").trim();
 
   try {
-    let aiResult = await callGeminiAdmin(prompt, systemInstruction);
-    let parsed = parseJsonSuggestion(aiResult?.text);
+    const result = await callGeminiAdmin(prompt, systemInstruction);
+    const raw = result.text || "";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    if (!parsed || typeof parsed.description !== "string") return null;
 
-    // אם ה-AI החזיר תיאור קצר מדי, מבצעים ניסיון שיפור נוסף.
-    if (parsed && !isRichDescription(parsed.description)) {
-      const improvePrompt = `התיאור שקיבלת קצר מדי ולא מספיק מקצועי למכירה.
-כתוב מחדש את אותה תשובה לאותו מוצר, אבל עם פתיח מקצועי + 6-8 שורות ✔️ מפורטות.
-המוצר: "${name}".
-החזר JSON בלבד עם אותם מפתחות: nameSuggestion, description, badge, tags, priceSuggestion.`;
-      aiResult = await callGeminiAdmin(improvePrompt, systemInstruction);
-      parsed = parseJsonSuggestion(aiResult?.text) || parsed;
+    let description = fixBullets(parsed.description);
+    if (detectPoorQuality(description)) {
+      try {
+        const rewriteResult = await callGeminiAdmin(
+          `שכתב את התיאור הבא בעברית שיווקית תקנית, כל ✔ בשורה נפרדת:\n${description}\nהחזר JSON: { "description": "..." }`,
+          "החזר JSON תקני בלבד."
+        );
+        const m2 = (rewriteResult.text || "").match(/\{[\s\S]*\}/);
+        const p2 = m2 ? JSON.parse(m2[0]) : null;
+        if (p2?.description && !detectPoorQuality(p2.description)) {
+          description = fixBullets(p2.description);
+        }
+      } catch (_) {}
     }
 
-    if (parsed && typeof parsed.description === "string") {
-      let nameSuggestion = normalizeAiNameSuggestion(originalName, parsed.nameSuggestion);
-      let normalizedDescription = normalizeAiDescription(originalName, parsed.description, knownSpecsBlock);
-
-      // אם יצא ניסוח חלש/לא טבעי, מבקשים שכתוב נוסף ממוקד.
-      if (isLowQualityHebrewDescription(normalizedDescription)) {
-        const rewritePrompt = `שכתב את התיאור לעברית שיווקית טבעית, אמינה ונקייה, בלי ביטויים מוזרים ובלי תרגום מכונה.
-אל תמציא נתונים טכניים חדשים.
-המוצר: "${name}".
-החזר JSON בלבד עם המפתחות: nameSuggestion, description, badge, tags, priceSuggestion.
-דרישות description:
-- פתיח קצר ומקצועי
-- 6 שורות ✔️, כל שורה בשורה חדשה
-- נקודות שבאמת מעניינות קונה: אמינות, נוחות שימוש, ביצועים יומיומיים, שירות, תמורה למחיר
-- לסיים ב: "זמין במבחר צבעים ביפון תקשורת סלולרית."`;
-        try {
-          const rewriteResult = await callGeminiAdmin(rewritePrompt, systemInstruction);
-          const rewritten = parseJsonSuggestion(rewriteResult?.text);
-          if (rewritten?.description) {
-            normalizedDescription = normalizeAiDescription(originalName, rewritten.description, knownSpecsBlock);
-            if (typeof rewritten.nameSuggestion === "string" && rewritten.nameSuggestion.trim()) {
-              nameSuggestion = normalizeAiNameSuggestion(originalName, rewritten.nameSuggestion);
-            }
-            aiResult = rewriteResult;
-          }
-        } catch (_) {}
-      }
-
-      // שכבת בטיחות אחרונה לטקסט גרוע במיוחד
-      if (isLowQualityHebrewDescription(normalizedDescription)) {
-        normalizedDescription = buildProfessionalFallbackDescription(originalName);
-      }
-      return {
-        nameSuggestion,
-        description: normalizedDescription,
-        badge: typeof parsed.badge === "string" ? parsed.badge : "",
-        tagsText: normalizeAiTags(originalName, parsed.tags, knownSpecsBlock),
-        priceSuggestion: typeof parsed.priceSuggestion === "number" ? parsed.priceSuggestion : null,
-        provider: aiResult?.provider || "gemini",
-        model: aiResult?.model || "",
-      };
-    }
-    return null;
+    return {
+      description,
+      badge: typeof parsed.badge === "string" ? parsed.badge : "",
+      tagsText: Array.isArray(parsed.tags) ? parsed.tags.join(", ") : (parsed.tags || ""),
+      priceSuggestion: typeof parsed.priceSuggestion === "number" ? parsed.priceSuggestion : null,
+      provider: result.provider,
+      model: result.model,
+    };
   } catch (e) {
     console.warn("AI suggestion failed", e);
     throw e;
@@ -759,8 +259,7 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    const normalizedEmail = (email || "").trim().toLowerCase();
-    if (normalizedEmail === "bp0527151000@gmail.com" && password === "123456") {
+    if (email === "bp0527151000@gmail.com" && password === "123456") {
       onLogin();
       return;
     }
@@ -774,7 +273,7 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
     }
     setLoading(true);
     try {
-      await auth.signInWithEmailAndPassword(normalizedEmail, password);
+      await auth.signInWithEmailAndPassword(email.trim(), password);
       onLogin();
     } catch (err) {
       setLoading(false);
@@ -813,16 +312,7 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">אימייל</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(""); if (onClearInitialError) onClearInitialError(); }}
-              onBlur={() => setEmail((v) => (v || "").trim().toLowerCase())}
-              className="w-full border rounded-lg p-3"
-              placeholder="admin@example.com"
-              required
-              autoFocus={!useFirebase}
-            />
+            <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); if (onClearInitialError) onClearInitialError(); }} className="w-full border rounded-lg p-3" placeholder="admin@example.com" required autoFocus={!useFirebase} />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">סיסמה</label>
@@ -844,12 +334,15 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
 }
 
 // --- Toast ---
-function Toast({ message, type, onClose }) {
+function Toast({ message, type, detail, onClose }) {
   const bg = type === "success" ? "bg-green-600" : type === "error" ? "bg-red-600" : "bg-slate-700";
   return (
-    <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm ${bg} text-white px-4 py-3 rounded-lg shadow-lg z-[9999] flex justify-between items-center`}>
-      <span>{message}</span>
-      <button onClick={onClose} className="text-white/80 hover:text-white">✕</button>
+    <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm ${bg} text-white px-4 py-3 rounded-lg shadow-lg z-[9999] flex justify-between items-start gap-3`}>
+      <div className="flex-1 min-w-0">
+        <p className="leading-snug">{message}</p>
+        {detail && <p className="text-white/70 text-xs mt-1 leading-snug">{detail}</p>}
+      </div>
+      <button onClick={onClose} className="text-white/80 hover:text-white shrink-0 mt-0.5">✕</button>
     </div>
   );
 }
@@ -951,9 +444,9 @@ function AdminApp() {
   const [previewKey, setPreviewKey] = useState(0);
   const [quickEditOpen, setQuickEditOpen] = useState(true);
 
-  const showToast = (msg, type = "info", durationMs = 4500) => {
-    setToast({ message: msg, type });
-    setTimeout(() => setToast(null), durationMs);
+  const showToast = (msg, type = "info", detail) => {
+    setToast({ message: msg, type, detail });
+    setTimeout(() => setToast(null), 9000);
   };
 
   useEffect(() => {
@@ -1250,7 +743,7 @@ function AdminApp() {
           iframeKey={previewKey}
         />
       )}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && <Toast message={toast.message} type={toast.type} detail={toast.detail} onClose={() => setToast(null)} />}
       {packageToDelete && (
         <ConfirmDelete
           title="מחיקת חבילה"
@@ -1637,6 +1130,7 @@ function PackagesSection({ packages, setPackages, onDeleteRequest, showToast }) 
                     {p.badge && <span className="inline-block w-fit px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg text-sm font-medium">{p.badge}</span>}
                     <span className="text-slate-600 font-semibold text-lg">₪{formatPrice(p.price)}/חודש</span>
                     {p.priceDetail && <span className="text-slate-500 text-sm">{p.priceDetail}</span>}
+                    {p.sku && <span className="text-slate-400 text-xs font-mono">מק״ט: {p.sku}</span>}
                   </div>
                 </div>
               </div>
@@ -1786,7 +1280,6 @@ function PackageFormModal({ pkg, onSave, onClose }) {
 function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [previewProduct, setPreviewProduct] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dropTargetIndex, setDropTargetIndex] = useState(null);
   const db = getDb();
@@ -1814,7 +1307,7 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
   const saveProduct = async (prod) => {
     const maxOrder = products.reduce((m, p) => Math.max(m, p.order ?? 0), 0);
     const sku = (prod.sku || "").toString().trim() || generateSku("P");
-    const payload = { name: prod.name, price: prod.price ?? null, description: prod.description || "", tags: prod.tags || [], images: prod.images || [], order: prod.order ?? maxOrder + 1, badge: prod.badge || "", featured: !!prod.featured, sku };
+    const payload = { name: prod.name, price: prod.price ?? null, description: prod.description || "", tags: prod.tags || [], images: prod.images || [], order: prod.order ?? maxOrder + 1, badge: prod.badge || "", featured: !!prod.featured, sku, techSpecsText: (prod.techSpecsText || "").trim() };
     if (db) {
       try {
         if (prod.id && !String(prod.id).startsWith("prod-")) {
@@ -1903,20 +1396,19 @@ function ProductsSection({ products, setProducts, onDeleteRequest, showToast }) 
               <p className="text-slate-600 font-medium text-sm">₪{formatPrice(p.price)}</p>
               {p.description && <p className="text-slate-500 text-sm mt-2 line-clamp-2 leading-relaxed">{p.description}</p>}
               {p.tags?.length > 0 && <p className="text-slate-400 text-xs mt-2">{p.tags.join(", ")}</p>}
+              {p.sku && <p className="text-slate-400 text-xs mt-1 font-mono">מק״ט: {p.sku}</p>}
               <label className="flex items-center gap-2 mt-2 cursor-pointer group" title="סימון/ביטול – יופיע או לא יופיע באזור המבצעים המומלצים בראש האתר">
                 <input type="checkbox" checked={!!p.featured} onChange={() => toggleProductFeatured(p)} className="w-4 h-4 rounded border-2 border-amber-400 text-amber-600" onClick={(e) => e.stopPropagation()} />
                 <span className="text-sm font-medium text-slate-600 group-hover:text-amber-700">במבצע מומלץ</span>
               </label>
-              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
-                <button onClick={() => setPreviewProduct(p)} className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 text-sm">👁 תצוגה</button>
-                <button onClick={() => { setEditing(p); setShowForm(true); }} className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 text-sm"><Edit2 /> ערוך</button>
-                <button onClick={() => onDeleteRequest(p)} className="px-3 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 text-sm"><Trash2 /> מחק</button>
+              <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                <button onClick={() => { setEditing(p); setShowForm(true); }} className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 text-sm"><Edit2 /> ערוך</button>
+                <button onClick={() => onDeleteRequest(p)} className="flex-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 text-sm"><Trash2 /> מחק</button>
               </div>
             </div>
           </div>
         ))}
       </div>
-      {previewProduct && <ProductPreviewModal product={previewProduct} onClose={() => setPreviewProduct(null)} />}
       {showForm && <ProductFormModal key={editing?.id ?? "new"} product={editing} onSave={(data) => { saveProduct(data); setEditing(null); setShowForm(false); }} onClose={() => { setEditing(null); setShowForm(false); }} showToast={showToast} />}
     </div>
   );
@@ -1940,21 +1432,17 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
     }
     setAiLoading(true);
     try {
-      const suggested = await suggestProductWithAI(name, form.techSpecsText || "");
+      const suggested = await suggestProductWithAI(name, form.techSpecsText);
       if (suggested) {
         setForm((f) => ({
           ...f,
-          name: suggested.nameSuggestion || f.name,
           description: suggested.description || f.description,
           badge: suggested.badge || f.badge,
           tagsText: suggested.tagsText || f.tagsText,
           price: (f.price !== "" && f.price != null) ? f.price : (suggested.priceSuggestion != null ? String(suggested.priceSuggestion) : f.price),
         }));
-        if (showToast) {
-          const providerName = suggested.provider === "groq" ? "Groq" : "Gemini";
-          const modelLabel = suggested.model ? ` (${suggested.model})` : "";
-          showToast(`ההמלצה הוכנה בהצלחה באמצעות ${providerName}${modelLabel}. אפשר לערוך ידנית לפני שמירה.`, "success", 9000);
-        }
+        const detail = suggested.model ? `ספק: ${suggested.provider || "AI"} | מודל: ${suggested.model}` : null;
+        if (showToast) showToast("המידע הושלם לפי המלצת AI – ערוך אם צריך", "success", detail);
       } else {
         if (showToast) showToast("לא התקבלה תשובה מתאימה מ-AI. נסה שוב או מלא ידנית.", "error");
       }
@@ -1974,7 +1462,7 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
       setUploading(false);
     }
     const tags = form.tagsText ? form.tagsText.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order, featured: !!form.featured, sku: (form.sku || "").toString().trim(), techSpecsText: (form.techSpecsText || "").toString().trim() });
+    onSave({ id: product?.id, name: form.name, price: form.price ? Number(form.price) : null, description: form.description, tags, images, badge: form.badge || "", order: product?.order, featured: !!form.featured, sku: (form.sku || "").toString().trim(), techSpecsText: (form.techSpecsText || "").trim() });
   };
 
   return (
@@ -2014,15 +1502,15 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
               <span className="text-xs text-slate-500">(למעלה בעמוד הראשי)</span>
             </label>
           </div>
+          <div className="p-4 bg-violet-50 rounded-xl border border-violet-200">
+            <label className="block text-sm font-bold text-violet-800 mb-1">מפרט טכני (אופציונלי – לשימוש AI)</label>
+            <p className="text-xs text-violet-600 mb-2">אם תמלא כאן מפרט טכני – ה-AI ישתמש רק בנתונים האלה (מצב מוגן). השאר ריק לכתיבה חופשית.</p>
+            <textarea value={form.techSpecsText || ""} onChange={(e) => setForm((f) => ({ ...f, techSpecsText: e.target.value }))} className="w-full border-2 border-violet-200 rounded-lg p-3 min-h-[80px] text-sm leading-relaxed bg-white" placeholder={"מסך: 6.7 אינץ׳ AMOLED\nמצלמה: 50MP + 12MP + 10MP\nזיכרון: 128GB / 8GB RAM\nסוללה: 4500mAh\n..."} rows={4} dir="rtl" />
+          </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">תיאור המוצר</label>
             <p className="text-xs text-slate-500 mb-2">טקסט חופשי שמתאר את המוצר. יכול לכלול מפרט טכני</p>
             <textarea value={form.description || ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-4 min-h-[140px] text-base leading-relaxed" placeholder="תיאור המוצר..." rows={6} />
-          </div>
-          <div className="p-4 bg-slate-50 rounded-xl">
-            <label className="block text-sm font-bold text-slate-800 mb-1">מפרט טכני מדויק (מומלץ ל-AI)</label>
-            <p className="text-xs text-slate-500 mb-2">שורה לכל נתון אמיתי בלבד. לדוגמה: מצלמה: 50MP | סוללה: 5000mAh | טעינה מהירה: 25W | עמידות מים: IP67 | מסך: 6.6&quot; FHD+.</p>
-            <textarea value={form.techSpecsText || ""} onChange={(e) => setForm((f) => ({ ...f, techSpecsText: e.target.value }))} className="w-full border-2 border-slate-200 rounded-lg p-3 min-h-[110px] text-sm leading-relaxed" placeholder={"מצלמה: 50MP\nסוללה: 5000mAh\nטעינה מהירה: 25W\nעמידות מים: IP67\nמסך: 6.6\" FHD+"} rows={5} />
           </div>
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">תמונות המוצר</label>
@@ -2057,98 +1545,6 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 border-2 border-slate-300 rounded-xl py-3 font-bold hover:bg-slate-50">ביטול</button>
           <button onClick={handleSave} disabled={uploading} className="flex-1 bg-[#1e3a5f] text-white rounded-xl py-3 font-bold disabled:opacity-50">שמור והוסף לאתר</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProductPreviewModal({ product, onClose }) {
-  const images = Array.isArray(product?.images) ? product.images.filter(Boolean) : [];
-  const tags = Array.isArray(product?.tags) ? product.tags : [];
-  const [imageIndex, setImageIndex] = useState(0);
-  const mainImage = images[imageIndex];
-  const hasMany = images.length > 1;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60" onClick={onClose}>
-      <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[92vh] border-2 border-slate-200 shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-100">
-          <h3 className="font-bold text-slate-800">תצוגה מקדימה (כמו באתר)</h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X /></button>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[420px] relative m-4 sm:m-6">
-            {mainImage ? (
-              <div className="relative w-full h-56 sm:h-72 md:h-80 bg-slate-100 flex items-center justify-center">
-                <img src={mainImage} alt={product?.name || ""} className="w-full h-full object-contain" />
-                {hasMany && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setImageIndex((i) => (i - 1 + images.length) % images.length)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
-                      aria-label="תמונה קודמת"
-                    >
-                      ‹
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImageIndex((i) => (i + 1) % images.length)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
-                      aria-label="תמונה הבאה"
-                    >
-                      ›
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="w-full h-56 sm:h-72 bg-slate-100 flex items-center justify-center text-4xl text-slate-300">📱</div>
-            )}
-            {hasMany && (
-              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-                <div className="flex gap-2 flex-wrap justify-center">
-                  {images.map((img, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setImageIndex(idx)}
-                      className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition ${
-                        idx === imageIndex ? "border-[#1e3a5f] ring-2 ring-[#1e3a5f]/30" : "border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {product?.badge && (
-              <span className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-lg bg-orange-500 text-white text-xs font-bold shadow">
-                {product.badge}
-              </span>
-            )}
-            <div className="p-4 sm:p-6 flex-grow flex flex-col min-h-0">
-              <h4 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 leading-tight">{product?.name || "מוצר"}</h4>
-              {product?.sku && <p className="text-xs text-slate-400 mb-3">מק״ט: <span className="font-mono tracking-widest">{product.sku}</span></p>}
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {tags.map((tag, idx) => (
-                    <span key={idx} className="text-xs px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 font-medium">{tag}</span>
-                  ))}
-                </div>
-              )}
-              {product?.description && <p className="text-sm sm:text-base text-gray-600 whitespace-pre-line leading-relaxed mb-6">{product.description}</p>}
-              <div className="mt-auto pt-2 flex flex-wrap justify-between items-center gap-3">
-                {product?.price != null && product.price !== "" && (
-                  <div className="text-[#1e3a5f] font-extrabold text-2xl">₪{formatPrice(product.price)}</div>
-                )}
-                <button className="px-5 py-3 rounded-xl bg-green-500 text-white text-sm font-bold flex items-center gap-2 shrink-0" type="button">
-                  💬 לפרטים
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
