@@ -58,38 +58,37 @@ async function uploadImageToImgBB(file, retries = 2) {
   return null;
 }
 
-// --- אייקונים פשוטים במקום lucide-react (מתאימים ל-RTL ולטיילווינד) ---
-const IconWrapper = ({ children, className, size = 20 }) => (
-  <span
-    className={className}
-    style={{ fontSize: size, lineHeight: 1 }}
-    aria-hidden="true"
-  >
-    {children}
-  </span>
+// --- SVG Icons (inline, no external deps, RTL-safe) ---
+const Ic = ({ d, size = 20, className = "", fill = "none", stroke = "currentColor", sw = "2", vb = "0 0 24 24", children }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox={vb} fill={fill} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    {d ? <path d={d} /> : children}
+  </svg>
 );
 
-const Phone = (props) => <IconWrapper {...props}>📞</IconWrapper>;
-const Smartphone = (props) => <IconWrapper {...props}>📱</IconWrapper>;
-const Wifi = (props) => <IconWrapper {...props}>📶</IconWrapper>;
-const MapPin = (props) => <IconWrapper {...props}>📍</IconWrapper>;
-const Clock = (props) => <IconWrapper {...props}>⏰</IconWrapper>;
-const ShieldCheck = (props) => <IconWrapper {...props}>✅</IconWrapper>;
-const Plus = (props) => <IconWrapper {...props}>＋</IconWrapper>;
-const Trash2 = (props) => <IconWrapper {...props}>🗑️</IconWrapper>;
-const Edit2 = (props) => <IconWrapper {...props}>✏️</IconWrapper>;
-const Menu = (props) => <IconWrapper {...props}>☰</IconWrapper>;
-const X = (props) => <IconWrapper {...props}>✕</IconWrapper>;
-const Lock = (props) => <IconWrapper {...props}>🔒</IconWrapper>;
-const LogOut = (props) => <IconWrapper {...props}>↩</IconWrapper>;
-const Zap = (props) => <IconWrapper {...props}>⚡</IconWrapper>;
-const Signal = (props) => <IconWrapper {...props}>📡</IconWrapper>;
-const RefreshCw = (props) => <IconWrapper {...props}>🔄</IconWrapper>;
-const Settings = (props) => <IconWrapper {...props}>⚙️</IconWrapper>;
-const MessageCircle = (props) => <IconWrapper {...props}>💬</IconWrapper>;
-const ImageIcon = (props) => <IconWrapper {...props}>🖼️</IconWrapper>;
-const Check = (props) => <IconWrapper {...props}>✓</IconWrapper>;
-const Accessibility = (props) => <IconWrapper {...props}>♿</IconWrapper>;
+const Phone        = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 11.36 18a19.5 19.5 0 0 1-4.5-4.5 19.79 19.79 0 0 1-3.93-8.41A2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L9.09 10.91a16 16 0 0 0 4 4l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></Ic>;
+const Smartphone   = ({ size=20, className="" }) => <Ic size={size} className={className}><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></Ic>;
+const Wifi         = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></Ic>;
+const MapPin       = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></Ic>;
+const Clock        = ({ size=20, className="" }) => <Ic size={size} className={className}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></Ic>;
+const ShieldCheck  = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></Ic>;
+const Plus         = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M12 5v14M5 12h14"/></Ic>;
+const Trash2       = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></Ic>;
+const Edit2        = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Ic>;
+const Menu         = ({ size=24, className="" }) => <Ic size={size} className={className}><path d="M3 12h18M3 6h18M3 18h18"/></Ic>;
+const X            = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M18 6 6 18M6 6l12 12"/></Ic>;
+const Lock         = ({ size=20, className="" }) => <Ic size={size} className={className}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></Ic>;
+const LogOut       = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></Ic>;
+const Zap          = ({ size=20, className="" }) => <Ic size={size} className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></Ic>;
+const Signal       = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M2 20h.01M7 20v-4M12 20V10M17 20V4M22 20v-2"/></Ic>;
+const RefreshCw    = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></Ic>;
+const Settings     = ({ size=20, className="" }) => <Ic size={size} className={className}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></Ic>;
+const MessageCircle= ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Ic>;
+const ImageIcon    = ({ size=20, className="" }) => <Ic size={size} className={className}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></Ic>;
+const Check        = ({ size=20, className="" }) => <Ic size={size} className={className}><path d="M20 6 9 17l-5-5"/></Ic>;
+const Accessibility= ({ size=20, className="" }) => <Ic size={size} className={className}><circle cx="12" cy="4" r="1"/><path d="m9 9 3 3v8M6 12l6-3 6 3M12 12v5l3 3"/></Ic>;
+const Search       = ({ size=20, className="" }) => <Ic size={size} className={className}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></Ic>;
+const ChevronDown  = ({ size=16, className="" }) => <Ic size={size} className={className}><path d="m6 9 6 6 6-6"/></Ic>;
+const Star         = ({ size=16, className="" }) => <Ic size={size} className={className} fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></Ic>;
 const Bot = ({ size = 28, className = "" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <rect x="4" y="10" width="16" height="11" rx="2" />
@@ -163,40 +162,108 @@ function Toast({ message, type = "info", onClose }) {
   );
 }
 
-// --- נתוני דמו לשוק (מותאם מהקובץ המקורי, פברואר 2026) ---
+// --- חבילות סלולר ואינטרנט — נתונים מסים פלוס (ideali) אפריל 2026 ---
 
 
 
 
 const MARKET_DEALS = [
-  // 5G
-  { provider: "Cellcom", providerName: "סלקום", providerNameHe: "סלקום", price: 39.9, priceDetail: "לקו שני ומעלה (קו בודד 59.9)", category: "5g", dataGB: 800, calls: "5000 דקות", sms: 0, extras: "500 דקות לחו״ל", is5G: true, logoUrl: "./logos/cellcom.png", isHot: true, features: ["5000 דקות שיחה", "גלישה: 800GB", "500 דקות לחו״ל"] },
-  { provider: "Hot Mobile", providerName: "הוט מובייל", providerNameHe: "הוט מובייל", price: 35, priceDetail: "לקו בזוגות (קו בודד 39.9)", category: "5g", dataGB: 300, calls: "3500 דקות", sms: 0, extras: "5G מהיר", is5G: true, logoUrl: "./logos/hot.png", isHot: false, features: ["3500 דקות שיחה", "גלישה: 300GB", "5G מהיר"] },
-  { provider: "WeCom", providerName: "ויקום", providerNameHe: "ויקום", price: 34, priceDetail: "מחיר קבוע לשנתיים", category: "5g", dataGB: 300, calls: "3000 דקות", sms: 0, extras: "ללא התחייבות", is5G: true, logoUrl: "./logos/wecom.png", isHot: false, features: ["3000 דקות שיחה", "גלישה: 300GB", "ללא התחייבות"] },
-  { provider: "Golan Telecom", providerName: "גולן טלקום", providerNameHe: "גולן טלקום", price: 39, priceDetail: "לאחר 3 חודשים 49 קבוע", category: "5g", dataGB: 750, calls: "5000 דקות", sms: 0, extras: "רשת מהירה", is5G: true, logoUrl: "./logos/golan.png", isHot: false, features: ["5000 דקות שיחה", "גלישה: 750GB", "רשת מהירה"] },
-  { provider: "Pelephone", providerName: "פלאפון", providerNameHe: "פלאפון", price: 39.9, priceDetail: "החל מקו ראשון!", category: "5g", dataGB: 800, calls: "5000 דקות", sms: 0, extras: "דור 5", is5G: true, logoUrl: "./logos/pelephone.png", isHot: true, features: ["5000 דקות שיחה", "גלישה: 800GB", "דור 5"] },
-  { provider: "Partner", providerName: "פרטנר", providerNameHe: "פרטנר", price: 39.9, priceDetail: "מחיר לשנה", category: "5g", dataGB: 500, calls: "5000 דקות", sms: 0, extras: "רשת חזקה", is5G: true, logoUrl: "./logos/partner.png", isHot: false, features: ["5000 דקות שיחה", "גלישה: 500GB", "רשת חזקה"] },
-  // 4G
-  { provider: "Cellcom", providerName: "סלקום", providerNameHe: "סלקום", price: 34.9, priceDetail: "ל-3 מנויים ומעלה (בודד/זוג 39.9)", category: "4g", dataGB: 400, calls: "3500 דקות", sms: 0, extras: "150 דקות לחו״ל", is5G: false, logoUrl: "./logos/cellcom.png", isHot: false, features: ["3500 דקות שיחה", "גלישה: 400GB", "150 דקות לחו״ל"] },
-  { provider: "Hot Mobile", providerName: "הוט מובייל", providerNameHe: "הוט מובייל", price: 25, priceDetail: "לקו בזוגות (בודד 29.9)", category: "4g", dataGB: 250, calls: "3000 דקות", sms: 0, extras: "", is5G: false, logoUrl: "./logos/hot.png", isHot: true, features: ["3000 דקות שיחה", "גלישה: 250GB"] },
-  { provider: "WeCom", providerName: "ויקום", providerNameHe: "ויקום", price: 28, priceDetail: "מחיר קבוע לשנתיים", category: "4g", dataGB: 300, calls: "3000 דקות", sms: 0, extras: "", is5G: false, logoUrl: "./logos/wecom.png", isHot: false, features: ["3000 דקות שיחה", "גלישה: 300GB"] },
-  { provider: "Golan Telecom", providerName: "גולן טלקום", providerNameHe: "גולן טלקום", price: 29.9, priceDetail: "מחיר קבוע לשנה וחצי", category: "4g", dataGB: 350, calls: "4000 דקות", sms: 0, extras: "", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["4000 דקות שיחה", "גלישה: 350GB"] },
-  { provider: "Pelephone", providerName: "פלאפון", providerNameHe: "פלאפון", price: 29.9, priceDetail: "החל מקו ראשון!", category: "4g", dataGB: 300, calls: "3000 דקות", sms: 0, extras: "", is5G: false, logoUrl: "./logos/pelephone.png", isHot: false, features: ["3000 דקות שיחה", "גלישה: 300GB"] },
-  { provider: "Partner", providerName: "פרטנר", providerNameHe: "פרטנר", price: 30, priceDetail: "ל-2 מנויים ומעלה (בודד 39.9)", category: "4g", dataGB: 400, calls: "3500 דקות", sms: 0, extras: "", is5G: false, logoUrl: "./logos/partner.png", isHot: true, features: ["3500 דקות שיחה", "גלישה: 400GB"] },
-  { provider: "019 Mobile", providerName: "019 מובייל", providerNameHe: "019 מובייל", price: 19.9, priceDetail: "מתאים לילדים", category: "4g", dataGB: 12, calls: "ללא הגבלה", sms: 0, extras: "החבילה הזולה ביותר!", is5G: false, logoUrl: "./logos/019.png", isHot: false, features: ["ללא הגבלה שיחה", "גלישה: 12GB", "מתאים לילדים"] },
-  // כשר
-  { provider: "Golan Telecom", providerName: "גולן טלקום", providerNameHe: "גולן טלקום", price: 27.9, priceDetail: "מחיר קבוע", category: "kosher", dataGB: 0, calls: "7000 דקות ללא הגבלה", sms: 0, extras: "500 דקות לחו״ל", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["7000 דקות ללא הגבלה", "500 דקות לחו״ל", "ללא אינטרנט/SMS"] },
-  { provider: "Hot Mobile", providerName: "הוט מובייל", providerNameHe: "הוט מובייל", price: 25, priceDetail: "לזוג ומעלה (בודד 26)", category: "kosher", dataGB: 0, calls: "5000 דקות ללא הגבלה", sms: 0, extras: "כשר למהדרין", is5G: false, logoUrl: "./logos/hot.png", isHot: true, features: ["5000 דקות ללא הגבלה", "700 דקות לחו״ל", "כשר למהדרין"] },
-  { provider: "Cellcom", providerName: "סלקום", providerNameHe: "סלקום", price: 25, priceDetail: "בחיבור 2 קווים (בודד 29.9)", category: "kosher", dataGB: 0, calls: "4000 דקות ללא הגבלה", sms: 0, extras: "סים כשר", is5G: false, logoUrl: "./logos/cellcom.png", isHot: false, features: ["4000 דקות ללא הגבלה", "500 דקות לחו״ל", "סים כשר"] },
-  { provider: "Pelephone", providerName: "פלאפון", providerNameHe: "פלאפון", price: 20, priceDetail: "לזוג ומעלה (בודד 29.9)", category: "kosher", dataGB: 0, calls: "4000 דקות ללא הגבלה", sms: 0, extras: "קליטה מעולה", is5G: false, logoUrl: "./logos/pelephone.png", isHot: true, features: ["4000 דקות ללא הגבלה", "קו כשר", "קליטה מעולה"] },
-  { provider: "Partner", providerName: "פרטנר", providerNameHe: "פרטנר", price: 25, priceDetail: "לזוג ומעלה (בודד 29.9)", category: "kosher", dataGB: 0, calls: "6000 דקות ללא הגבלה", sms: 0, extras: "מספר כשר", is5G: false, logoUrl: "./logos/partner.png", isHot: false, features: ["6000 דקות ללא הגבלה", "500 דקות לחו״ל", "מספר כשר"] },
-  // אינטרנט/סיבים
-  { provider: "Cellcom", providerName: "סלקום פייבר", providerNameHe: "סלקום", price: 39, priceDetail: "לחודש (למשך 3 חודשים)", category: "internet", dataGB: 0, calls: 0, sms: 0, extras: "ראוטר WiFi 7 כלול", is5G: false, logoUrl: "./logos/cellcom.png", isHot: true, badge: "מבצע מטורף", afterPrice: "מחיר המשך 99 ₪", features: ["אינטרנט סיבים עוצמתי", "ראוטר WiFi 7 כלול", "מגדיל טווח כלול!", "התקנה מהירה"] },
-  { provider: "Cellcom", providerName: "סלקום טריפל", providerNameHe: "סלקום", price: 89, priceDetail: "לחודש (למשך 3 חודשים)", category: "internet", dataGB: 0, calls: 0, sms: 0, extras: "טלוויזיה + אינטרנט", is5G: false, logoUrl: "./logos/cellcom.png", isHot: true, badge: "טריפל שובר שוק", afterPrice: "מחיר המשך 149 ₪", features: ["טלוויזיה + אינטרנט סיבים", "ראוטר WiFi 7 כלול", "מגדיל טווח כלול", "ממיר אחד כלול"] },
-  { provider: "Hot", providerName: "HOT סיבים 1000/100", price: 99, priceDetail: "לחודש (למשך שנה)", category: "internet", dataGB: 0, calls: 0, sms: 0, extras: "התקנה חינם (בניין דירות)", is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["מהירות עד 1000Mbps", "נתב ומגדיל טווח כלול", "התקנה חינם (בניין דירות)"] },
-  { provider: "Hot", providerName: "HOT סיבים 600/100", price: 89, priceDetail: "לחודש (למשך שנה)", category: "internet", dataGB: 0, calls: 0, sms: 0, extras: "נתב ומגדיל טווח כלול", is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["מהירות עד 600Mbps", "נתב ומגדיל טווח כלול", "התקנה חינם (בניין דירות)"] },
-  { provider: "Hot", providerName: "HOT טריפל NEXT + סיבים 1000", price: 135, priceDetail: "לחודש", category: "internet", dataGB: 0, calls: 0, sms: 0, extras: "אינטרנט + טלוויזיה", is5G: false, logoUrl: "./logos/hot.png", isHot: true, badge: "הכל כלול", features: ["אינטרנט סיבים 1000Mbps", "טלוויזיה NEXT עם VOD", "סטרימר 65 ערוצים", "ראוטר ומגדיל טווח כלול"] },
-  { provider: "Bezeq Fiber", providerName: "בזק סיבים", providerNameHe: "בזק", price: 119, priceDetail: "לחודש", category: "internet", dataGB: 0, calls: 0, sms: 0, extras: "כולל נתב Be, מהירות עד 2.5Gb", is5G: false, logoUrl: "./logos/bezeq.png", isHot: false, features: ["כולל נתב Be", "מהירות עד 2.5Gb", "סיבים אופטיים"] },
+  // ══════════════════════ דור 5 ══════════════════════
+
+  // פרטנר 5G
+  { provider: "Partner", providerName: "פרטנר", name: "דור 5 golden", priceDetail: "דור 5 golden", price: 39.9, category: "5g", dataGB: 500, calls: "5000 דקות", is5G: true, logoUrl: "./logos/partner.png", isHot: true, features: ["500 GB גלישה", "5000 דקות שיחה", "5000 הודעות"] },
+  { provider: "Partner", providerName: "פרטנר", name: "Queen 5G", priceDetail: "Queen 5G", price: 49.9, category: "5g", dataGB: 500, calls: "5000 דקות", is5G: true, logoUrl: "./logos/partner.png", isHot: false, features: ["500 GB גלישה", "5000 דקות שיחה", "5000 הודעות"] },
+  { provider: "Partner", providerName: "פרטנר", name: "King 5G", priceDetail: "King 5G", price: 59.9, category: "5g", dataGB: 800, calls: "6000 דקות", is5G: true, logoUrl: "./logos/partner.png", isHot: false, features: ["800 GB גלישה", "6000 דקות שיחה", "6000 הודעות"] },
+
+  // סלקום 5G
+  { provider: "Cellcom", providerName: "סלקום", name: "סלקום בשבילך 59.9", priceDetail: "800GB | 2 חודשים ב-59.9₪", price: 39.9, category: "5g", dataGB: 800, calls: "5000 דקות", is5G: true, logoUrl: "./logos/cellcom.png", isHot: true, features: ["800 GB גלישה", "5000 דקות שיחה", "2 חודשים ב-59.9₪"] },
+  { provider: "Cellcom", providerName: "סלקום", name: "סלקום בשבילך 49.9 לזוג", priceDetail: "800GB | לזוג ב-49.9₪", price: 39.9, category: "5g", dataGB: 800, calls: "5000 דקות", is5G: true, logoUrl: "./logos/cellcom.png", isHot: false, features: ["800 GB גלישה", "5000 דקות שיחה", "לזוג ב-49.9₪"] },
+  { provider: "Cellcom", providerName: "סלקום", name: "5G PRO כולל חול", priceDetail: "1500GB + גלישה בחו\"ל", price: 119.9, category: "5g", dataGB: 1500, calls: "5000 דקות", is5G: true, logoUrl: "./logos/cellcom.png", isHot: false, features: ["1500 GB גלישה", "5000 דקות שיחה", "גלישה בחו\"ל כלולה"] },
+
+  // גולן 5G
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "מבצע דור 5 לזוג", priceDetail: "750GB | לזוג ב-35₪", price: 39.0, category: "5g", dataGB: 750, calls: "5000 דקות", is5G: true, logoUrl: "./logos/golan.png", isHot: true, features: ["750 GB גלישה", "5000 דקות שיחה", "לזוג ב-35₪"] },
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "3 חודשים ב-39₪", priceDetail: "750GB | 3 חודשים ב-39₪", price: 49.0, category: "5g", dataGB: 750, calls: "5000 דקות", is5G: true, logoUrl: "./logos/golan.png", isHot: false, features: ["750 GB גלישה", "5000 דקות שיחה", "5000 הודעות"] },
+
+  // הוט 5G
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "דור 5 - 2 ב-70₪", priceDetail: "300GB | 2 קווים ב-70₪", price: 39.9, category: "5g", dataGB: 300, calls: "3500 דקות", is5G: true, logoUrl: "./logos/hot.png", isHot: true, features: ["300 GB גלישה", "3500 דקות שיחה", "2 קווים ב-70₪"] },
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "BASIC דור 5", priceDetail: "BASIC דור 5", price: 45.9, category: "5g", dataGB: 600, calls: "4000 דקות", is5G: true, logoUrl: "./logos/hot.png", isHot: false, features: ["600 GB גלישה", "4000 דקות שיחה", "4000 הודעות"] },
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "5G Premium כולל חול", priceDetail: "2500GB + גלישה בחו\"ל", price: 89.0, category: "5g", dataGB: 2500, calls: "8000 דקות", is5G: true, logoUrl: "./logos/hot.png", isHot: false, features: ["2500 GB גלישה", "8000 דקות שיחה", "גלישה בחו\"ל כלולה"] },
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "5G Premium MAX כולל חול", priceDetail: "3000GB + גלישה בחו\"ל", price: 109.9, category: "5g", dataGB: 3000, calls: "10000 דקות", is5G: true, logoUrl: "./logos/hot.png", isHot: false, features: ["3000 GB גלישה", "10000 דקות שיחה", "גלישה בחו\"ל כלולה"] },
+
+  // פלאפון 5G
+  { provider: "Pelephone", providerName: "פלאפון", name: "מבצע דור 5 - 33₪ לשלושה", priceDetail: "500GB | 3 מנויים ב-33₪", price: 33.0, category: "5g", dataGB: 500, calls: "5000 דקות", is5G: true, logoUrl: "./logos/pelephone.png", isHot: true, features: ["500 GB גלישה", "5000 דקות שיחה", "3 מנויים ב-33₪"] },
+  { provider: "Pelephone", providerName: "פלאפון", name: "800 גיגה דור 5", priceDetail: "800GB דור 5", price: 39.9, category: "5g", dataGB: 800, calls: "5000 דקות", is5G: true, logoUrl: "./logos/pelephone.png", isHot: false, features: ["800 GB גלישה", "5000 דקות שיחה", "5000 הודעות"] },
+  { provider: "Pelephone", providerName: "פלאפון", name: "1000 גיגה דור 5", priceDetail: "1000GB | חודשיים ב-35₪", price: 49.9, category: "5g", dataGB: 1000, calls: "5000 דקות", is5G: true, logoUrl: "./logos/pelephone.png", isHot: false, features: ["1000 GB גלישה", "5000 דקות שיחה", "5000 הודעות"] },
+  { provider: "Pelephone", providerName: "פלאפון", name: "5G חודשיים ב-44.9", priceDetail: "2000GB | חודשיים ב-44.9₪", price: 59.9, category: "5g", dataGB: 2000, calls: "5000 דקות", is5G: true, logoUrl: "./logos/pelephone.png", isHot: false, features: ["2000 GB גלישה", "5000 דקות שיחה", "5000 הודעות"] },
+
+  // wecom 5G
+  { provider: "WeCom", providerName: "wecom", name: "wecomFree 5G", priceDetail: "wecomFree 5G", price: 35.0, category: "5g", dataGB: 10000, calls: "5000 דקות", is5G: true, logoUrl: "./logos/wecom.png", isHot: true, features: ["10,000 GB גלישה", "5000 דקות שיחה", "3000 הודעות"] },
+  { provider: "WeCom", providerName: "wecom", name: "מבצע עצמאות 5G", priceDetail: "10,000GB | חודש ראשון חינם", price: 35.0, category: "5g", dataGB: 10000, calls: "5000 דקות", is5G: true, logoUrl: "./logos/wecom.png", isHot: false, features: ["10,000 GB גלישה", "5000 דקות שיחה", "חודש ראשון חינם"] },
+  { provider: "WeCom", providerName: "wecom", name: "wecom300GB 5G", priceDetail: "wecom300GB 5G", price: 34.0, category: "5g", dataGB: 300, calls: "5000 דקות", is5G: true, logoUrl: "./logos/wecom.png", isHot: false, features: ["300 GB גלישה", "5000 דקות שיחה", "3000 הודעות"] },
+  { provider: "WeCom", providerName: "wecom", name: "wecomFree 5G MAX", priceDetail: "wecomFree 5G MAX", price: 39.9, category: "5g", dataGB: 10000, calls: "5000 דקות", is5G: true, logoUrl: "./logos/wecom.png", isHot: false, features: ["10,000 GB גלישה", "5000 דקות שיחה", "3000 הודעות"] },
+  { provider: "WeCom", providerName: "wecom", name: "wefunGlobal 5G", priceDetail: "7000GB + גלישה בחו\"ל", price: 59.9, category: "5g", dataGB: 7000, calls: "3000 דקות", is5G: true, logoUrl: "./logos/wecom.png", isHot: false, features: ["7000 GB גלישה", "3000 דקות שיחה", "גלישה בחו\"ל כלולה"] },
+
+  // ══════════════════════ דור 4 ══════════════════════
+
+  // פרטנר 4G
+  { provider: "Partner", providerName: "פרטנר", name: "STAR 2 ומעלה ב-30₪", priceDetail: "לזוג ומעלה ב-30₪ | בודד 39.9₪", price: 39.9, category: "4g", dataGB: 400, calls: "3500 דקות", is5G: false, logoUrl: "./logos/partner.png", isHot: false, features: ["400 GB גלישה", "3500 דקות שיחה", "לזוג ב-30₪"] },
+
+  // סלקום 4G
+  { provider: "Cellcom", providerName: "סלקום", name: "סלקום מושלם", priceDetail: "סלקום מושלם", price: 39.9, category: "4g", dataGB: 400, calls: "3500 דקות", is5G: false, logoUrl: "./logos/cellcom.png", isHot: false, features: ["400 GB גלישה", "3500 דקות שיחה", "3500 הודעות"] },
+  { provider: "Cellcom", providerName: "סלקום", name: "סלקום אקסטרה", priceDetail: "סלקום אקסטרה", price: 39.9, category: "4g", dataGB: 400, calls: "3500 דקות", is5G: false, logoUrl: "./logos/cellcom.png", isHot: false, features: ["400 GB גלישה", "3500 דקות שיחה", "3500 הודעות"] },
+
+  // גולן 4G
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "קיץ 2025", priceDetail: "קיץ 2025", price: 29.9, category: "4g", dataGB: 350, calls: "4000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: true, features: ["350 GB גלישה", "4000 דקות שיחה", "4000 הודעות"] },
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "2 קווים ב-60₪", priceDetail: "2 קווים ב-60₪ סה\"כ", price: 30.0, category: "4g", dataGB: 350, calls: "4000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["350 GB גלישה", "4000 דקות שיחה", "4000 הודעות"] },
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "1000 גיגה עצמאות", priceDetail: "3 מנויים ב-99₪", price: 33.0, category: "4g", dataGB: 1000, calls: "4000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["1000 GB גלישה", "4000 דקות שיחה", "3 מנויים ב-99₪"] },
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "300 גיגה + חו\"ל", priceDetail: "300GB + 240 דק' לחו\"ל", price: 34.9, category: "4g", dataGB: 300, calls: "4000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["300 GB גלישה", "4000 דקות שיחה", "240 דקות לחו\"ל"] },
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "חודשיים ב-24.90₪", priceDetail: "חודשיים ראשונים ב-24.90₪", price: 34.9, category: "4g", dataGB: 400, calls: "4000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["400 GB גלישה", "4000 דקות שיחה", "4000 הודעות"] },
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "משפחתית 3 קווים", priceDetail: "3 קווים ב-92.70₪ סה\"כ", price: 92.7, category: "4g", dataGB: 0, calls: "4000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["4000 דקות שיחה", "4000 הודעות", "3 קווים ב-92.70₪ סה\"כ"] },
+
+  // הוט 4G
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "150 גיגה", priceDetail: "150 GB", price: 25.9, category: "4g", dataGB: 150, calls: "3000 דקות", is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["150 GB גלישה", "3000 דקות שיחה", "3000 הודעות"] },
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "200 גיגה מחיר לשנה", priceDetail: "200GB מחיר שנתי", price: 27.9, category: "4g", dataGB: 200, calls: "3000 דקות", is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["200 GB גלישה", "3000 דקות שיחה", "3000 הודעות"] },
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "25 למנוי לזוג ומעלה", priceDetail: "לזוג ומעלה ב-25₪", price: 29.9, category: "4g", dataGB: 250, calls: "3000 דקות", is5G: false, logoUrl: "./logos/hot.png", isHot: true, features: ["250 GB גלישה", "3000 דקות שיחה", "לזוג ב-25₪"] },
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "30 למנוי 3 ומעלה", priceDetail: "3 ומעלה ב-30₪", price: 39.9, category: "4g", dataGB: 400, calls: "3500 דקות", is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["400 GB גלישה", "3500 דקות שיחה", "3 מנויים ב-30₪"] },
+
+  // פלאפון 4G
+  { provider: "Pelephone", providerName: "פלאפון", name: "מבצע 300 GB", priceDetail: "300 GB", price: 29.9, category: "4g", dataGB: 300, calls: "3000 דקות", is5G: false, logoUrl: "./logos/pelephone.png", isHot: false, features: ["300 GB גלישה", "3000 דקות שיחה", "3000 הודעות"] },
+  { provider: "Pelephone", providerName: "פלאפון", name: "400 גיגה 5 ומעלה ב-28₪", priceDetail: "5 ומעלה ב-28₪", price: 39.0, category: "4g", dataGB: 400, calls: "3500 דקות", is5G: false, logoUrl: "./logos/pelephone.png", isHot: false, features: ["400 GB גלישה", "3500 דקות שיחה", "5+ ב-28₪"] },
+
+  // wecom 4G
+  { provider: "WeCom", providerName: "wecom", name: "wecom300GB 4G", priceDetail: "wecom300GB 4G", price: 28.0, category: "4g", dataGB: 300, calls: "5000 דקות", is5G: false, logoUrl: "./logos/wecom.png", isHot: false, features: ["300 GB גלישה", "5000 דקות שיחה", "3000 הודעות"] },
+  { provider: "WeCom", providerName: "wecom", name: "wecomFamily 4G", priceDetail: "לזוג ומעלה", price: 29.9, category: "4g", dataGB: 10000, calls: "5000 דקות", is5G: false, logoUrl: "./logos/wecom.png", isHot: true, features: ["10,000 GB גלישה", "5000 דקות שיחה", "לזוג ומעלה"] },
+  { provider: "WeCom", providerName: "wecom", name: "wecomFree 4G", priceDetail: "wecomFree 4G", price: 34.9, category: "4g", dataGB: 10000, calls: "5000 דקות", is5G: false, logoUrl: "./logos/wecom.png", isHot: false, features: ["10,000 GB גלישה", "5000 דקות שיחה", "3000 הודעות"] },
+  { provider: "WeCom", providerName: "wecom", name: "wefunGlobal + חו\"ל", priceDetail: "7000GB + גלישה בחו\"ל", price: 49.9, category: "4g", dataGB: 7000, calls: "3000 דקות", is5G: false, logoUrl: "./logos/wecom.png", isHot: false, features: ["7000 GB גלישה", "3000 דקות שיחה", "גלישה בחו\"ל כלולה"] },
+
+  // ══════════════════════ כשר ══════════════════════
+
+  // גולן כשר
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "כשר 5000 דקות", priceDetail: "5000 דקות", price: 25.0, category: "kosher", dataGB: 0, calls: "5000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: false, features: ["5000 דקות שיחה", "ללא אינטרנט/SMS", "קו כשר"] },
+  { provider: "Golan Telecom", providerName: "גולן טלקום", name: "כשר 7000 דקות", priceDetail: "7000 דקות | מחיר קבוע", price: 27.9, category: "kosher", dataGB: 0, calls: "7000 דקות", is5G: false, logoUrl: "./logos/golan.png", isHot: true, features: ["7000 דקות שיחה", "ללא אינטרנט/SMS", "קו כשר"] },
+
+  // הוט כשר
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "כשר 25 לזוג", priceDetail: "לזוג ב-25₪ | בודד 26₪", price: 26.0, category: "kosher", dataGB: 0, calls: "5000 דקות", is5G: false, logoUrl: "./logos/hot.png", isHot: true, features: ["5000 דקות שיחה", "ללא אינטרנט/SMS", "קו כשר"] },
+  { provider: "Hot Mobile", providerName: "הוט מובייל", name: "כשר 10000 דקות + חודש חינם", priceDetail: "קו שני ב-30₪ | חודש ראשון חינם", price: 39.0, category: "kosher", dataGB: 0, calls: "10000 דקות", is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["10000 דקות שיחה", "ללא אינטרנט/SMS", "חודש ראשון חינם"] },
+
+  // סלקום כשר
+  { provider: "Cellcom", providerName: "סלקום", name: "כשר קו בודד 29₪", priceDetail: "בודד 29₪ | לזוג ב-25₪", price: 29.0, category: "kosher", dataGB: 0, calls: "4000 דקות", is5G: false, logoUrl: "./logos/cellcom.png", isHot: true, features: ["4000 דקות שיחה", "ללא אינטרנט/SMS", "לזוג ב-25₪"] },
+  { provider: "Cellcom", providerName: "סלקום", name: "כשר 5000 דקות 35₪", priceDetail: "5000 דקות | 2+ ב-30₪", price: 35.0, category: "kosher", dataGB: 0, calls: "5000 דקות", is5G: false, logoUrl: "./logos/cellcom.png", isHot: false, features: ["5000 דקות שיחה", "ללא אינטרנט/SMS", "2+ ב-30₪"] },
+
+  // פלאפון כשר
+  { provider: "Pelephone", providerName: "פלאפון", name: "כשר ללא הגבלה", priceDetail: "2 ומעלה ב-20₪", price: 29.9, category: "kosher", dataGB: 0, calls: "4000 דקות", is5G: false, logoUrl: "./logos/pelephone.png", isHot: false, features: ["4000 דקות שיחה", "ללא אינטרנט/SMS", "2+ ב-20₪"] },
+  { provider: "Pelephone", providerName: "פלאפון", name: "קו כשר 25 לזוג", priceDetail: "לזוג ב-25₪", price: 33.0, category: "kosher", dataGB: 0, calls: "4200 דקות", is5G: false, logoUrl: "./logos/pelephone.png", isHot: false, features: ["4200 דקות שיחה", "ללא אינטרנט/SMS", "לזוג ב-25₪"] },
+
+  // פרטנר כשר
+  { provider: "Partner", providerName: "פרטנר", name: "כשר 25 לזוג ומעלה", priceDetail: "לזוג ב-25₪ | 6000 דקות", price: 29.9, category: "kosher", dataGB: 0, calls: "6000 דקות", is5G: false, logoUrl: "./logos/partner.png", isHot: false, features: ["6000 דקות שיחה", "ללא אינטרנט/SMS", "לזוג ב-25₪"] },
+
+  // ══════════════════════ אינטרנט ══════════════════════
+  { provider: "Cellcom", providerName: "סלקום פייבר", price: 39, priceDetail: "לחודש (למשך 3 חודשים)", category: "internet", dataGB: 0, calls: 0, is5G: false, logoUrl: "./logos/cellcom.png", isHot: true, badge: "מבצע מטורף", afterPrice: "מחיר המשך 99 ₪", features: ["אינטרנט סיבים עוצמתי", "ראוטר WiFi 7 כלול", "מגדיל טווח כלול!", "התקנה מהירה"] },
+  { provider: "Cellcom", providerName: "סלקום טריפל", price: 89, priceDetail: "לחודש (למשך 3 חודשים)", category: "internet", dataGB: 0, calls: 0, is5G: false, logoUrl: "./logos/cellcom.png", isHot: true, badge: "טריפל שובר שוק", afterPrice: "מחיר המשך 149 ₪", features: ["טלוויזיה + אינטרנט סיבים", "ראוטר WiFi 7 כלול", "מגדיל טווח כלול", "ממיר אחד כלול"] },
+  { provider: "Hot Mobile", providerName: "HOT סיבים 1000/100", price: 99, priceDetail: "לחודש (למשך שנה)", category: "internet", dataGB: 0, calls: 0, is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["מהירות עד 1000Mbps", "נתב ומגדיל טווח כלול", "התקנה חינם (בניין דירות)"] },
+  { provider: "Hot Mobile", providerName: "HOT סיבים 600/100", price: 89, priceDetail: "לחודש (למשך שנה)", category: "internet", dataGB: 0, calls: 0, is5G: false, logoUrl: "./logos/hot.png", isHot: false, features: ["מהירות עד 600Mbps", "נתב ומגדיל טווח כלול", "התקנה חינם (בניין דירות)"] },
+  { provider: "Hot Mobile", providerName: "HOT טריפל NEXT + סיבים 1000", price: 135, priceDetail: "לחודש", category: "internet", dataGB: 0, calls: 0, is5G: false, logoUrl: "./logos/hot.png", isHot: true, badge: "הכל כלול", features: ["אינטרנט סיבים 1000Mbps", "טלוויזיה NEXT עם VOD", "סטרימר 65 ערוצים", "ראוטר ומגדיל טווח כלול"] },
+  { provider: "Bezeq Fiber", providerName: "בזק סיבים", price: 119, priceDetail: "לחודש", category: "internet", dataGB: 0, calls: 0, is5G: false, logoUrl: "./logos/bezeq.svg", isHot: false, features: ["כולל נתב Be", "מהירות עד 2.5Gb", "סיבים אופטיים"] },
 ];
 
 const DEFAULT_SITE_TEXTS = {
@@ -213,7 +280,7 @@ const DEFAULT_SITE_TEXTS = {
   footerDesc: "הבית של הסלולר הכשר והחכם באזור. שירות אמין, מחירים הוגנים, מעבדה לתיקון מכשירים ומחשבים והתקנת סינון כשר.",
   navFeatured: "מבצעים מומלצים",
   navProducts: "אביזרים ומבצעים",
-  navPackages: "ניוד קווים",
+  navPackages: "חבילות סלולר",
   navServices: "מעבדה",
   navLocations: "צור קשר",
   btnAllProducts: "לכל המוצרים",
@@ -241,14 +308,16 @@ const DEFAULT_CONFIG = {
       id: "bs",
       city: "בית שמש",
       address: "רחוב יצחק רבין 17, בית שמש",
-      phone: "052-7151000",
+      phone: "0527151000",
+      phoneDisplay: "0527151000 שלוחה 2",
       hours: "א'-ה': 10:00 - 21:00\nימי ו' וערבי חג:\nחורף 10:00 - 13:00\nקיץ 10:00 - 14:00",
     },
     {
       id: "beitar",
       city: "ביתר עילית",
       address: "המגיד ממעזריטש 71, ביתר עילית",
-      phone: "02-9911213",
+      phone: "0527151000",
+      phoneDisplay: "0527151000 שלוחה 1",
       hours: "א'-ה': 10:00 - 21:00\nימי ו' וערבי חג:\nחורף 10:00 - 12:30\nקיץ 10:00 - 13:00",
     },
   ],
@@ -486,10 +555,10 @@ function App() {
   const [products, setProducts] = useState([]);
   const [siteConfig, setSiteConfig] = useState(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState("all");
+  const [activeCarrier, setActiveCarrier] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [topSearchQuery, setTopSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [packagesVisibleCount, setPackagesVisibleCount] = useState(3);
+  const [packagesVisibleCount, setPackagesVisibleCount] = useState(6);
   const [productsVisibleCount, setProductsVisibleCount] = useState(6);
   const [promoMessage, setPromoMessage] = useState({
     title: "מבצעי השקה!",
@@ -515,6 +584,7 @@ function App() {
   });
   const [bannerIndex, setBannerIndex] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [quickLead, setQuickLead] = useState(null); // { productName, waUrl }
   const isAdmin = false; // ממשק ניהול הועבר ל-admin.html
   const isEditMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("admin_edit") === "1";
 
@@ -676,7 +746,8 @@ function App() {
 
   const handleWhatsAppClick = (pkg) => {
     const url = buildWhatsAppUrlForItem(pkg);
-    window.open(url, "_blank");
+    const productName = pkg.providerName || pkg.name || "";
+    setQuickLead({ productName, waUrl: url });
   };
 
   const handleShareProduct = async (product) => {
@@ -748,10 +819,12 @@ function App() {
   // --- סינון חבילות (טאב + חיפוש חופשי: חברה, מחיר, סוג, כשר, מק״ט וכו') ---
   const filteredPackages = packages.filter((pkg) => {
     if (activeTab !== "all" && pkg.category !== activeTab) return false;
+    if (activeCarrier !== "all" && pkg.provider !== activeCarrier) return false;
     const q = (searchQuery || "").trim().toLowerCase();
     if (!q) return true;
     const searchable = [
       pkg.sku,
+      pkg.name,
       pkg.providerNameHe,
       pkg.providerName,
       pkg.provider,
@@ -768,45 +841,35 @@ function App() {
     return searchable.includes(q);
   });
 
-  const displayedPackages = filteredPackages.slice(0, packagesVisibleCount);
-  const hasMorePackages = filteredPackages.length > packagesVisibleCount;
+  const sortedPackages = [...filteredPackages].sort((a, b) => (a.price || 0) - (b.price || 0));
+  const showAllFromSearch = (searchQuery || "").trim().length > 0;
+  const displayedPackages = showAllFromSearch ? sortedPackages : sortedPackages.slice(0, packagesVisibleCount);
+  const hasMorePackages = !showAllFromSearch && sortedPackages.length > packagesVisibleCount;
 
-  const sortedProducts = useMemo(
-    () => [...products].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
-    [products]
-  );
-  const displayedProducts = sortedProducts.slice(0, productsVisibleCount);
-  const hasMoreProducts = !isAdmin && sortedProducts.length > productsVisibleCount;
-  const topSearchResults = useMemo(() => {
-    const q = (topSearchQuery || "").trim().toLowerCase();
-    if (!q) return { products: [], packages: [] };
-    const productsRes = sortedProducts.filter((p) => {
-      const searchable = [p.sku, p.name, (p.tags || []).join(" "), p.description, String(p.price ?? "")]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(q);
-    }).slice(0, 6);
-    const packagesRes = [...packages].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)).filter((pkg) => {
+  const filteredProducts = useMemo(() => {
+    const q = (searchQuery || "").trim().toLowerCase();
+    if (!q) return [...products];
+    return products.filter((p) => {
       const searchable = [
-        pkg.sku,
-        pkg.providerNameHe,
-        pkg.providerName,
-        pkg.provider,
-        String(pkg.price),
-        categoryToLabel[pkg.category] || pkg.category,
-        (pkg.features && pkg.features.join(" ")) || "",
-        pkg.priceDetail || "",
-        pkg.badge || "",
-        pkg.extras || "",
+        p.sku,
+        p.name,
+        (p.tags || []).join(" "),
+        p.description,
+        String(p.price ?? ""),
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return searchable.includes(q);
-    }).slice(0, 6);
-    return { products: productsRes, packages: packagesRes };
-  }, [topSearchQuery, sortedProducts, packages]);
+    });
+  }, [products, searchQuery]);
+
+  const sortedProducts = useMemo(
+    () => [...filteredProducts].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
+    [filteredProducts]
+  );
+  const displayedProducts = showAllFromSearch ? sortedProducts : sortedProducts.slice(0, productsVisibleCount);
+  const hasMoreProducts = !isAdmin && !showAllFromSearch && sortedProducts.length > productsVisibleCount;
 
   const featuredProducts = useMemo(() => sortedProducts.filter((p) => p.featured), [sortedProducts]);
   const featuredPackages = useMemo(
@@ -834,77 +897,66 @@ function App() {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900" dir="rtl">
       {isEditMode && (
         <div className="bg-amber-500 text-amber-900 text-center py-2 px-4 text-sm font-bold sticky top-0 z-[60] shadow">
-          ✏️ מצב עריכה – לחץ על כל טקסט כדי לערוך, לשנות או למחוק. השינויים נשמרים אוטומטית.
+          מצב עריכה – לחץ על כל טקסט כדי לערוך, לשנות או למחוק. השינויים נשמרים אוטומטית.
         </div>
       )}
-      {/* Navigation – סגנון ביפון: כחול כהה, לבן, דגש כתום */}
-      <nav className={`${bphoneNavy} shadow-lg sticky top-0 z-50`}>
+      {/* Navigation */}
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <a
-                href="#"
-                className="flex items-center hover:opacity-90 transition"
-              >
-                {siteConfig.logoUrl ? (
-                  <div className="flex-shrink-0 flex items-center">
-                    <img
-                      src={siteConfig.logoUrl}
-                      alt="ביפון B-Phone"
-                      className="h-14 w-auto object-contain"
-                    />
+          <div className="flex justify-between h-20 items-center">
+            {/* Logo — החלף את logoUrl בקובץ ה-index.html כדי לשנות לוגו */}
+            <a href="#" className="flex items-center gap-2 hover:opacity-85 transition">
+              {siteConfig.logoUrl ? (
+                <img src={siteConfig.logoUrl} alt="ביפון B-Phone" className="h-14 w-auto object-contain" />
+              ) : (
+                <>
+                  <div className="bg-[#1e3a5f] p-2 rounded-lg">
+                    <Phone size={20} className="text-white" />
                   </div>
-                ) : (
-                  <div className="flex-shrink-0 flex items-center gap-2">
-                    <div className="bg-orange-500 p-2 rounded-lg">
-                      <Phone className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-bold text-white leading-none">
-                        ביפון
-                      </h1>
-                      <span className="text-xs text-sky-200">
-                        תקשורת סלולרית
-                      </span>
-                    </div>
+                  <div>
+                    <div className="text-lg font-bold text-[#1e3a5f] leading-none">ביפון</div>
+                    <div className="text-xs text-slate-500 leading-tight">תקשורת סלולרית</div>
                   </div>
-                )}
-              </a>
-            </div>
+                </>
+              )}
+            </a>
 
-            {/* Desktop Menu */}
-            <div className="hidden md:flex items-center gap-6">
-              <a href="#promos" className="text-white/90 hover:text-orange-400 font-medium transition">
-                מבצעים
-              </a>
-              <a href="#packages" className="text-white/90 hover:text-orange-400 font-medium transition">
-                חבילות
-              </a>
-              <a href="#products" className="text-white/90 hover:text-orange-400 font-medium transition">
-                מוצרים
-              </a>
-              <a href="#services" className="text-white/90 hover:text-orange-400 font-medium transition">
-                שירותים
-              </a>
-              <a href="#locations" className="text-white/90 hover:text-orange-400 font-medium transition">
-                סניפים
-              </a>
+            {/* Desktop Nav */}
+            <div className="hidden md:flex items-center gap-0.5">
+              {[["#promos","מבצעים"],["#packages","חבילות"],["#products","מוצרים"],["#services","שירותים"],["#locations","סניפים"],["#contact","יצירת קשר"]].map(([href,label]) => (
+                <a key={href} href={href} className="px-3.5 py-2 text-sm font-semibold text-slate-600 hover:text-[#1e3a5f] hover:bg-blue-50/70 rounded-xl transition-all">{label}</a>
+              ))}
               <button
                 type="button"
                 onClick={() => setSearchOpen((v) => !v)}
-                className="ml-4 flex items-center justify-center w-9 h-9 rounded-full border border-white/40 text-white hover:bg-white/10 hover:text-orange-300 transition"
-                title="חיפוש מוצרים וחבילות"
-                aria-label="חיפוש מוצרים וחבילות"
+                className="mr-2 flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-[#1e3a5f] transition"
+                title="חיפוש" aria-label="חיפוש"
               >
-                🔍
+                <Search size={18} />
               </button>
+              <a
+                href={`https://wa.me/972${(siteConfig.whatsapp||'0527151000').replace(/^0/,'').replace(/\D/g,'')}`}
+                target="_blank" rel="noopener noreferrer"
+                className="btn btn-whatsapp btn-sm mr-2 flex items-center gap-1.5"
+              >
+                <Phone size={16} />
+                WhatsApp
+              </a>
             </div>
 
-            {/* Mobile menu button – לבן כדי שייראה על הרקע הכחול */}
-            <div className="md:hidden flex items-center">
+            {/* Mobile: search + hamburger */}
+            <div className="md:hidden flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setSearchOpen((v) => !v)}
+                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition"
+                aria-label="חיפוש"
+              >
+                <Search size={20} />
+              </button>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-white p-2.5 rounded-xl hover:bg-white/20 hover:text-orange-300 transition focus:outline-none focus:ring-2 focus:ring-white/50"
+                className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition focus:outline-none"
                 aria-label={mobileMenuOpen ? "סגור תפריט" : "פתח תפריט"}
               >
                 {mobileMenuOpen ? <X size={22} /> : <Menu size={24} />}
@@ -913,134 +965,75 @@ function App() {
           </div>
         </div>
 
-        {/* Mobile Menu – כותרת ברורה וקישורים בולטים */}
+        {/* Mobile Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#2a4a6f] border-t border-white/20 pb-4 shadow-lg">
-            <div className="px-4 pt-4 pb-2">
-              <p className="text-orange-400 font-bold text-sm uppercase tracking-wider mb-1">ניווט</p>
-              <h2 className="text-white text-lg font-bold">בחר אזור באתר</h2>
-            </div>
-            <div className="flex flex-col space-y-0 px-4">
-              <a href="#promos" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>מבצעים</a>
-              <a href="#packages" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>חבילות</a>
-              <a href="#products" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>מוצרים</a>
-              <a href="#services" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>שירותים</a>
-              <a href="#locations" className="py-3.5 text-white font-medium hover:text-orange-400 hover:bg-white/5 border-b border-white/10 transition rounded-lg px-2 -mx-2" onClick={() => setMobileMenuOpen(false)}>סניפים</a>
+          <div className="md:hidden bg-white border-t border-slate-200 shadow-lg pb-5">
+            <div className="flex flex-col px-5 pt-3">
+              {[["#promos","מבצעים"],["#packages","חבילות"],["#products","מוצרים"],["#services","שירותים"],["#locations","סניפים"],["#contact","יצירת קשר"]].map(([href,label]) => (
+                <a
+                  key={href} href={href}
+                  className="py-3.5 text-slate-700 font-semibold hover:text-[#1e3a5f] border-b border-slate-100 transition flex items-center justify-between"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {label}
+                  <span className="text-slate-300 text-lg">‹</span>
+                </a>
+              ))}
+              <a
+                href={`https://wa.me/972${(siteConfig.whatsapp||'0527151000').replace(/^0/,'').replace(/\D/g,'')}`}
+                target="_blank" rel="noopener noreferrer"
+                className="mt-5 btn btn-whatsapp flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-bold"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                WhatsApp
+              </a>
             </div>
           </div>
         )}
-      </nav>
 
-      {searchOpen && (
-        <div className="bg-slate-100 border-b border-slate-200 py-3">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2">
+        {/* פאנל חיפוש – בתוך ה-nav כדי להישאר sticky */}
+        {searchOpen && (
+          <div className="bg-white border-t border-gray-100 py-3 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto flex items-center gap-2">
               <input
+                autoFocus
                 type="text"
-                value={topSearchQuery}
-                onChange={(e) => setTopSearchQuery(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && setSearchOpen(false)}
                 placeholder="חיפוש לפי שם מוצר, חבילה או מק״ט..."
-                className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm sm:text-base text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 rounded-xl border border-gray-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition"
               />
               <button
                 type="button"
-                onClick={() => { setTopSearchQuery(""); setSearchOpen(false); }}
-                className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-sm hover:bg-slate-300"
+                onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-lg hover:bg-slate-200 transition"
                 title="סגור חיפוש"
                 aria-label="סגור חיפוש"
               >
                 ×
               </button>
             </div>
-            {(topSearchQuery || "").trim() && (
-              <div className="mt-3 space-y-5">
-                {topSearchResults.products.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-700 mb-2">מוצרים</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {topSearchResults.products.map((product) => (
-                        <ProductCard
-                          key={`top-product-${product.id}`}
-                          product={product}
-                          onWhatsApp={handleWhatsAppClick}
-                          onShare={handleShareProduct}
-                          onOpenDetail={(p, startIndex) => setProductDetailOpen({ product: p, startImageIndex: startIndex ?? 0 })}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {topSearchResults.packages.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-700 mb-2">חבילות</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {topSearchResults.packages.map((pkg) => {
-                        const headerClass = getProviderStripeClass(pkg.provider, pkg.is5G);
-                        const features = getPackageFeatures(pkg);
-                        const displayName = getProviderDisplayName(pkg);
-                        return (
-                          <div key={`top-package-${pkg.id}`} className="group bg-white rounded-2xl border border-gray-200/80 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden relative">
-                            {pkg.isHot && <div className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-bl-2xl z-10 shadow">מבצע מומלץ</div>}
-                            {pkg.badge && <div className={`absolute top-0 ${pkg.isHot ? "left-0 rounded-br-2xl" : "right-0 rounded-bl-2xl"} bg-amber-400 text-slate-900 text-xs font-bold px-4 py-2 z-10 shadow`}>{pkg.badge}</div>}
-                            <div className={`${headerClass} px-4 pt-4 pb-4 text-white text-center relative overflow-hidden`}>
-                              <div className="absolute inset-0 bg-black/10" />
-                              <div className="relative z-10 flex flex-col items-center">
-                                {pkg.logoUrl ? (
-                                  <img src={pkg.logoUrl} alt={displayName} className="w-20 h-20 object-contain bg-white rounded-full p-1 shadow-lg border-2 border-white/50 mb-2" />
-                                ) : (
-                                  <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mb-2 border-2 border-white/50 [&>div]:scale-150">
-                                    <ProviderLogo provider={pkg.provider} url={null} />
-                                  </div>
-                                )}
-                                <h3 className="text-lg font-bold tracking-tight opacity-95">{displayName}</h3>
-                                <div className="flex justify-center items-baseline gap-1 mt-1.5">
-                                  <span className="text-4xl font-extrabold tracking-tight">{formatPrice(pkg.price)}</span>
-                                  <span className="text-xl font-semibold mr-0.5">₪</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="p-5 flex-1 flex flex-col">
-                              <ul className="space-y-2.5 mb-5 flex-grow">
-                                {features.slice(0, 5).map((feature, idx) => (
-                                  <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-                                    <Check size={16} className="text-emerald-500 mt-0.5 shrink-0" />
-                                    <span>{feature}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                              <button onClick={() => handleWhatsAppClick(pkg)} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 mt-auto transition">
-                                <MessageCircle size={20} />
-                                להצטרפות
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {topSearchResults.products.length === 0 && topSearchResults.packages.length === 0 && (
-                  <p className="px-4 py-3 text-sm text-slate-500 bg-white border border-slate-200 rounded-xl">לא נמצאו תוצאות לחיפוש הזה.</p>
-                )}
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )}
+      </nav>
 
-      {/* Hero / באנר ביפון – גובה נמוך, רוחב מלא לראות את רוב התמונה */}
+      {/* Hero */}
       <div
         id="promos"
-        className={`relative ${bphoneNavy} text-white overflow-hidden min-h-[200px] sm:min-h-[220px] flex flex-col justify-center transition-all duration-500`}
+        className="relative overflow-hidden min-h-[280px] sm:min-h-[380px] flex flex-col justify-center"
+        style={hasBanner ? {background:"#1e3a5f"} : {background:"#ffffff"}}
       >
+        {/* Banner images */}
         {hasBanner && useBannerRotation && heroBanners.map((url, i) => (
           <div
             key={url}
-            className="absolute inset-0 z-0 transition-opacity duration-[1.2s] ease-in-out bg-center"
+            className="absolute inset-0 transition-opacity duration-[1.2s] ease-in-out"
             style={{
               backgroundImage: `url(${url})`,
-              backgroundSize: "100% auto",
-              backgroundRepeat: "no-repeat",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
               opacity: i === bannerIndex ? 1 : 0,
               zIndex: i === bannerIndex ? 1 : 0,
               pointerEvents: "none",
@@ -1049,95 +1042,103 @@ function App() {
         ))}
         {hasBanner && !useBannerRotation && heroBanners[heroDefaultBannerIndex] && (
           <div
-            className="absolute inset-0 z-0 bg-center"
+            className="absolute inset-0"
             style={{
               backgroundImage: `url(${heroBanners[heroDefaultBannerIndex]})`,
-              backgroundSize: "100% auto",
-              backgroundRepeat: "no-repeat",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
               pointerEvents: "none",
+              zIndex: 1,
             }}
           />
         )}
-        {hasBanner && (
-          <div className="absolute inset-0 bg-[#1e3a5f]/60 z-[2]" aria-hidden />
-        )}
-        {!hasBanner && (
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orange-500/30 to-transparent" />
-        )}
+        {/* Overlay – רק כשיש תמונת באנר */}
+        {hasBanner && <div className="absolute inset-0 bg-slate-900/50 z-[2]" aria-hidden />}
+        {/* קו גבול תחתון עדין – ללא באנר */}
+        {!hasBanner && <div className="absolute bottom-0 left-0 right-0 h-px bg-slate-200" aria-hidden />}
 
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8 relative z-20">
-          <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 py-1.5 px-4 rounded-full bg-white/10 border border-orange-400/50 text-sm font-semibold text-sky-100 mb-4">
-              <span className="text-orange-400">◆</span> <EditableText type="siteTexts" editKey="heroBadge" value={t.heroBadge} />
+        <div className="max-w-3xl mx-auto px-6 py-12 sm:py-16 sm:px-8 relative z-10 text-center">
+          {((t.heroBadge||"").trim()||isEditMode) && (
+            <span className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs font-semibold mb-4 fade-up ${hasBanner ? "bg-white/15 border border-white/30 text-white/90" : "bg-orange-50 border border-orange-200 text-orange-600"}`}>
+              <EditableText type="siteTexts" editKey="heroBadge" value={t.heroBadge} />
             </span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 text-white drop-shadow-md">
-              <EditableText type="promo" editKey="title" value={promoMessage.title} as="span" />
-            </h2>
-            <p className="text-lg sm:text-xl text-sky-100/90 max-w-2xl mx-auto mb-8">
-              <EditableText type="promo" editKey="subtitle" value={promoMessage.subtitle} as="span" />
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 mb-8">
-              {hasFeatured && v.featured !== false && (
-                <a href="#featured" className="px-4 py-2 rounded-lg bg-amber-400 text-amber-900 font-bold hover:bg-amber-300 transition text-sm shadow-lg">
-                  <EditableText type="siteTexts" editKey="navFeatured" value={t.navFeatured} placeholder="מבצעים מומלצים" />
-                </a>
-              )}
-              {v.products !== false && (
-                <a href="#products" className="px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-400 transition text-sm">
-                  <EditableText type="siteTexts" editKey="navProducts" value={t.navProducts} placeholder="אביזרים ומבצעים" />
-                </a>
-              )}
-              {v.packages !== false && (
-                <a href="#packages" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
-                  <EditableText type="siteTexts" editKey="navPackages" value={t.navPackages} placeholder="ניוד קווים" />
-                </a>
-              )}
-              {v.services !== false && (
-                <a href="#services" className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-orange-500/80 border border-white/20 transition text-sm">
-                  <EditableText type="siteTexts" editKey="navServices" value={t.navServices} placeholder="מעבדה" />
-                </a>
-              )}
-            </div>
-            <div className="flex flex-wrap justify-center gap-4">
-              {v.locations !== false && ((t.btnFindBranch || "").trim() || isEditMode) && (
-                <a
-                  href="#locations"
-                  className="px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition shadow-lg"
-                >
-                  <EditableText type="siteTexts" editKey="btnFindBranch" value={t.btnFindBranch} placeholder="מצא סניף קרוב" />
-                </a>
-              )}
-              {v.packages !== false && ((t.btnAllPackages || "").trim() || isEditMode) && (
-                <a
-                  href="#packages"
-                  className="px-6 py-3 rounded-xl bg-transparent border-2 border-white text-white font-bold hover:bg-white/10 transition"
-                >
-                  <EditableText type="siteTexts" editKey="btnAllPackages" value={t.btnAllPackages} placeholder="לכל החבילות" />
-                </a>
-              )}
-            </div>
+          )}
+          <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight fade-up ${hasBanner ? "text-white" : "text-slate-900"}`} style={{animationDelay:".05s", fontFamily:"'Heebo',sans-serif"}}>
+            <EditableText type="promo" editKey="title" value={promoMessage.title} as="span" />
+          </h2>
+          <p className={`text-base sm:text-lg max-w-xl mx-auto mb-8 fade-up font-normal ${hasBanner ? "text-white/80" : "text-slate-500"}`} style={{animationDelay:".1s"}}>
+            <EditableText type="promo" editKey="subtitle" value={promoMessage.subtitle} as="span" />
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 fade-up" style={{animationDelay:".15s"}}>
+            {v.packages !== false && ((t.btnAllPackages||"").trim()||isEditMode) && (
+              <a href="#packages" className="btn btn-primary px-6 py-3 text-sm">
+                <EditableText type="siteTexts" editKey="btnAllPackages" value={t.btnAllPackages} placeholder="לכל החבילות" />
+              </a>
+            )}
+            {v.locations !== false && ((t.btnFindBranch||"").trim()||isEditMode) && (
+              <a href="#locations" className={`btn px-6 py-3 text-sm ${hasBanner ? "" : "btn-ghost"}`} style={hasBanner ? {borderColor:"rgba(255,255,255,.5)",color:"#fff",background:"transparent",border:"1.5px solid rgba(255,255,255,.5)",borderRadius:".75rem"} : {}}>
+                <EditableText type="siteTexts" editKey="btnFindBranch" value={t.btnFindBranch} placeholder="מצא סניף קרוב" />
+              </a>
+            )}
+            {hasFeatured && v.featured !== false && (
+              <a href="#featured" className={`btn px-6 py-3 text-sm ${hasBanner ? "" : "btn-ghost"}`} style={hasBanner ? {borderColor:"rgba(255,255,255,.5)",color:"#fff",background:"transparent",border:"1.5px solid rgba(255,255,255,.5)",borderRadius:".75rem"} : {}}>
+                <EditableText type="siteTexts" editKey="navFeatured" value={t.navFeatured} placeholder="מבצעים מומלצים" />
+              </a>
+            )}
+          </div>
+          {/* Trust chips */}
+          <div className="flex flex-wrap justify-center gap-5 mt-8 fade-up" style={{animationDelay:".2s"}}>
+            {[["ShieldCheck","ניסיון 10+ שנה"],["Smartphone","שני סניפים"],["Clock","שירות 6 ימים"]].map(([ic,label])=>(
+              <span key={label} className={`flex items-center gap-1.5 text-xs font-medium ${hasBanner ? "text-white/70" : "text-slate-400"}`}>
+                {ic==="ShieldCheck" && <ShieldCheck size={13}/>}
+                {ic==="Smartphone"  && <Smartphone size={13}/>}
+                {ic==="Clock"       && <Clock size={13}/>}
+                {label}
+              </span>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* מבצעים מומלצים – כותרת אחת, שורה אחת של מוצרים וחבילות יחד */}
+      {/* Trust Bar */}
+      <div className="bg-white border-b border-gray-100 py-6">
+        <div className="max-w-5xl mx-auto px-4 flex flex-wrap justify-center items-center gap-6 sm:gap-12">
+          {[["500+","לקוחות מרוצים"],["10+","שנות ניסיון"],["2","סניפים פעילים"],["6","ימי שירות"]].map(([num,label], i, arr) => (
+            <React.Fragment key={label}>
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-2xl font-bold text-[#1e3a5f]">{num}</span>
+                <span className="text-xs text-slate-500 font-medium">{label}</span>
+              </div>
+              {i < arr.length - 1 && <div className="trust-divider hidden sm:block" />}
+            </React.Fragment>
+          ))}
+          <div className="trust-divider hidden sm:block" />
+          <div className="flex flex-wrap justify-center items-center gap-2">
+            {["סלקום","פרטנר","הוט","גולן","פלאפון","wecom"].map(name => (
+              <span key={name} className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full hover:border-slate-300 transition">{name}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* מבצעים מומלצים */}
       {v.featured !== false && hasFeatured && (
-        <section id="featured" className="py-12 sm:py-16 bg-gradient-to-b from-amber-50/80 to-white border-b border-amber-100">
+        <section id="featured" className="py-20 bg-slate-50 border-t border-gray-100">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center mb-8">
               {(((t.featuredBadge ?? "").trim()) !== "" || isEditMode) && (
-                <span className="inline-block px-4 py-1.5 rounded-full bg-amber-200/80 text-amber-900 text-sm font-bold mb-3"><EditableText type="siteTexts" editKey="featuredBadge" value={t.featuredBadge} placeholder="ההמלצות שלנו" /></span>
+                <span className="section-label"><EditableText type="siteTexts" editKey="featuredBadge" value={t.featuredBadge} placeholder="ההמלצות שלנו" /></span>
               )}
               {(((t.featuredTitle ?? "").trim()) !== "" || isEditMode) && (
-                <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] mb-2"><EditableText type="siteTexts" editKey="featuredTitle" value={t.featuredTitle} as="span" placeholder="מבצעים מומלצים" /></h2>
+                <h2 className="section-title"><EditableText type="siteTexts" editKey="featuredTitle" value={t.featuredTitle} as="span" placeholder="מבצעים מומלצים" /></h2>
               )}
               {(((t.featuredSubtitle ?? "").trim()) !== "" || isEditMode) && (
-                <p className="text-slate-600 max-w-xl mx-auto"><EditableText type="siteTexts" editKey="featuredSubtitle" value={t.featuredSubtitle} as="span" placeholder="מוצרים וחבילות שנבחרו במיוחד – במחיר משתלם" /></p>
+                <p className="section-sub"><EditableText type="siteTexts" editKey="featuredSubtitle" value={t.featuredSubtitle} as="span" placeholder="מוצרים וחבילות שנבחרו במיוחד – במחיר משתלם" /></p>
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
               {featuredProducts.map((product) => (
-                <div key={`p-${product.id}`} className="flex flex-col min-h-[380px]" id={`product-${product.id || ""}`}>
+                <div key={`p-${product.id}`} className="flex flex-col" id={`product-${product.id || ""}`}>
                   <ProductCard
                     product={product}
                     onWhatsApp={handleWhatsAppClick}
@@ -1153,39 +1154,39 @@ function App() {
                 return (
                   <div
                     key={`pkg-${pkg.id}`}
-                    className="flex flex-col min-h-[380px] bg-white rounded-2xl border-2 border-amber-200/60 shadow-lg hover:shadow-xl transition overflow-hidden"
+                    className="bp-card flex flex-col overflow-hidden pkg-stripe"
                   >
                     <div className={`${headerClass} px-4 pt-4 pb-4 text-white text-center relative flex-shrink-0`}>
-                      <div className="absolute top-2 right-2 bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full z-10">מבצע מומלץ</div>
+                      <div className="section-label absolute top-2 right-2 !mb-0 !rounded-lg z-10">מומלץ</div>
                       {pkg.logoUrl ? (
-                        <img src={pkg.logoUrl} alt={displayName} className="w-16 h-16 object-contain bg-white rounded-full p-1 shadow-lg border-2 border-white/50 mx-auto mb-2" />
+                        <img src={pkg.logoUrl} alt={displayName} className="w-14 h-14 object-contain bg-white rounded-full p-1 shadow-md border-2 border-white/40 mx-auto mb-2" />
                       ) : (
-                        <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-2 border-2 border-white/50">
+                        <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-2 border-2 border-white/40">
                           <ProviderLogo provider={pkg.provider} url={null} />
                         </div>
                       )}
-                      <h3 className="text-lg font-bold">{displayName}</h3>
+                      <h3 className="text-base font-bold">{displayName}</h3>
                       <div className="flex justify-center items-baseline gap-1 mt-1">
                         <span className="text-3xl font-extrabold">{formatPrice(pkg.price)}</span>
                         <span className="text-lg font-semibold">₪</span>
                       </div>
-                      <p className="text-xs opacity-90">/חודש</p>
-                      {pkg.priceDetail && <p className="text-xs opacity-95 mt-1">{pkg.priceDetail}</p>}
+                      <p className="text-xs opacity-80">/חודש</p>
+                      {pkg.priceDetail && <p className="text-xs opacity-90 mt-1">{pkg.priceDetail}</p>}
                     </div>
-                    <div className="p-4 flex-grow flex flex-col min-h-0">
+                    <div className="p-4 flex-grow flex flex-col">
                       <ul className="space-y-2 mb-4 text-sm text-slate-700">
                         {features.slice(0, 3).map((f, i) => (
                           <li key={i} className="flex items-center gap-2">
-                            <Check size={14} className="text-green-500 shrink-0" />
+                            <Check size={14} className="text-emerald-500 shrink-0" />
                             <span>{f}</span>
                           </li>
                         ))}
                       </ul>
                       <button
                         onClick={() => handleWhatsAppClick(pkg)}
-                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 mt-auto transition"
+                        className="btn btn-whatsapp w-full mt-auto"
                       >
-                        <MessageCircle size={20} />
+                        <MessageCircle size={18} />
                         להצטרפות
                       </button>
                     </div>
@@ -1193,9 +1194,9 @@ function App() {
                 );
               })}
             </div>
-            <div className="text-center mt-8">
-              {((t.btnAllProducts || "").trim() || isEditMode) && <a href="#products" className="inline-block px-6 py-3 rounded-xl bg-[#1e3a5f] text-white font-bold hover:bg-[#2a4a6f] transition"><EditableText type="siteTexts" editKey="btnAllProducts" value={t.btnAllProducts} placeholder="לכל המוצרים" /></a>}
-              {((t.btnAllPackages || "").trim() || isEditMode) && <a href="#packages" className="inline-block px-6 py-3 rounded-xl bg-white border-2 border-[#1e3a5f] text-[#1e3a5f] font-bold hover:bg-slate-50 transition mr-3"><EditableText type="siteTexts" editKey="btnAllPackages" value={t.btnAllPackages} placeholder="לכל החבילות" /></a>}
+            <div className="text-center mt-8 flex flex-wrap justify-center gap-3">
+              {((t.btnAllProducts || "").trim() || isEditMode) && <a href="#products" className="btn btn-navy"><EditableText type="siteTexts" editKey="btnAllProducts" value={t.btnAllProducts} placeholder="לכל המוצרים" /></a>}
+              {((t.btnAllPackages || "").trim() || isEditMode) && <a href="#packages" className="btn btn-ghost"><EditableText type="siteTexts" editKey="btnAllPackages" value={t.btnAllPackages} placeholder="לכל החבילות" /></a>}
             </div>
           </div>
         </section>
@@ -1203,12 +1204,15 @@ function App() {
 
       {/* Services Grid */}
       {v.services !== false && (
-      <section id="services" className="py-12 bg-white">
+      <section id="services" className="py-20 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center text-[#1e3a5f] mb-2">
-            <EditableText type="siteTexts" editKey="servicesTitle" value={t.servicesTitle} as="span" placeholder="כל מה שצריך במקום אחד" />
-          </h2>
-          <p className="text-center text-slate-500 mb-10"><EditableText type="siteTexts" editKey="servicesSubtitle" value={t.servicesSubtitle} as="span" placeholder="שירותים ופתרונות תקשורת בסגנון ביפון" /></p>
+          <div className="text-center mb-10">
+            <span className="section-label">שירותים</span>
+            <h2 className="section-title">
+              <EditableText type="siteTexts" editKey="servicesTitle" value={t.servicesTitle} as="span" placeholder="כל מה שצריך במקום אחד" />
+            </h2>
+            <p className="section-sub"><EditableText type="siteTexts" editKey="servicesSubtitle" value={t.servicesSubtitle} as="span" placeholder="שירותים ופתרונות תקשורת בסגנון ביפון" /></p>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {siteConfig.services.map((service, idx) => (
               <ServiceCard
@@ -1228,11 +1232,12 @@ function App() {
       {v.products !== false && (
       <section
         id="products"
-        className="py-12 bg-white border-t border-slate-200"
+        className="py-20 bg-slate-50 border-t border-gray-100"
       >
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <h2 className="text-3xl font-bold text-slate-800">
+          <div className="text-center mb-8">
+            <span className="section-label">מוצרים</span>
+            <h2 className="section-title">
               <EditableText type="siteTexts" editKey="productsTitle" value={t.productsTitle} as="span" placeholder="מכשירים ומוצרים בחנות" />
             </h2>
           </div>
@@ -1259,11 +1264,7 @@ function App() {
               </div>
               {hasMoreProducts && ((t.btnShowMoreProducts ?? "").trim() || isEditMode) && (
                 <div className="text-center mt-8">
-                  <button
-                    type="button"
-                    onClick={() => setProductsVisibleCount((c) => c + 6)}
-                    className="px-6 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-400 transition"
-                  >
+                  <button type="button" onClick={() => setProductsVisibleCount((c) => c + 6)} className="btn btn-primary">
                     <EditableText type="siteTexts" editKey="btnShowMoreProducts" value={t.btnShowMoreProducts} placeholder="הצג עוד מוצרים" />
                   </button>
                 </div>
@@ -1278,49 +1279,84 @@ function App() {
       {v.packages !== false && (
       <section
         id="packages"
-        className="py-12 bg-slate-50 border-t border-slate-200"
+        className="py-20 bg-white border-t border-gray-100"
       >
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-6 text-sm text-center max-w-2xl mx-auto">
-            המחירים והמבצעים באחריות הספקים ונתונים לשינוי בהתאם לתקנון החברות. ט.ל.ח
-          </p>
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <h2 className="text-3xl font-bold text-[#1e3a5f]">
+          <div className="text-center mb-6">
+            <span className="section-label">חבילות סלולר</span>
+            <h2 className="section-title">
               <EditableText type="siteTexts" editKey="packagesTitle" value={t.packagesTitle} as="span" placeholder="מצאו את החבילה שמתאימה לכם" />
             </h2>
-
-            {/* טאבים */}
-            <div className="flex overflow-x-auto pb-2 md:pb-0 w-full md:w-auto -mx-4 px-4 md:mx-0 md:px-0">
-              <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 min-w-max">
+          </div>
+          <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-6 text-xs text-center max-w-2xl mx-auto">
+            המחירים והמבצעים באחריות הספקים ונתונים לשינוי בהתאם לתקנון החברות. ט.ל.ח
+          </p>
+          {/* טאבים קטגוריה */}
+          <div className="flex justify-center mb-3">
+            <div className="flex overflow-x-auto -mx-4 px-4">
+              <div className="flex bg-slate-50 border border-slate-200 p-1 rounded-xl min-w-max mx-auto">
                 <TabButton
                   active={activeTab === "all"}
-                  onClick={() => setActiveTab("all")}
+                  onClick={() => { setActiveTab("all"); setPackagesVisibleCount(6); }}
                   label="הכל"
                 />
                 <TabButton
                   active={activeTab === "kosher"}
-                  onClick={() => setActiveTab("kosher")}
+                  onClick={() => { setActiveTab("kosher"); setPackagesVisibleCount(6); }}
                   label="כשר"
                   icon={<ShieldCheck size={16} />}
                 />
                 <TabButton
                   active={activeTab === "4g"}
-                  onClick={() => setActiveTab("4g")}
+                  onClick={() => { setActiveTab("4g"); setPackagesVisibleCount(6); }}
                   label="דור 4"
                   icon={<Signal size={16} />}
                 />
                 <TabButton
                   active={activeTab === "5g"}
-                  onClick={() => setActiveTab("5g")}
+                  onClick={() => { setActiveTab("5g"); setPackagesVisibleCount(6); }}
                   label="דור 5"
                   icon={<Zap size={16} />}
                 />
                 <TabButton
                   active={activeTab === "internet"}
-                  onClick={() => setActiveTab("internet")}
+                  onClick={() => { setActiveTab("internet"); setPackagesVisibleCount(6); }}
                   label="אינטרנט ביתי"
                   icon={<Wifi size={16} />}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* פילטר חברה */}
+          <div className="flex justify-center mb-6">
+            <div className="flex overflow-x-auto -mx-4 px-4">
+              <div className="flex gap-2 min-w-max mx-auto items-center">
+                <button
+                  onClick={() => { setActiveCarrier("all"); setPackagesVisibleCount(6); }}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-all ${activeCarrier === "all" ? "text-white shadow" : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"}`}
+                  style={activeCarrier === "all" ? { background: "var(--c-primary)", borderColor: "var(--c-primary)" } : {}}
+                >
+                  כל החברות
+                </button>
+                {[
+                  { id: "Golan Telecom", label: "גולן", logo: "./logos/golan.png" },
+                  { id: "Cellcom",       label: "סלקום", logo: "./logos/cellcom.png" },
+                  { id: "Hot Mobile",    label: "הוט",   logo: "./logos/hot.png" },
+                  { id: "Pelephone",     label: "פלאפון", logo: "./logos/pelephone.png" },
+                  { id: "Partner",       label: "פרטנר", logo: "./logos/partner.png" },
+                  { id: "WeCom",         label: "wecom",  logo: "./logos/wecom.png" },
+                ].map(({ id, label, logo }) => (
+                  <button
+                    key={id}
+                    onClick={() => { setActiveCarrier(activeCarrier === id ? "all" : id); setPackagesVisibleCount(6); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all ${activeCarrier === id ? "text-white shadow" : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"}`}
+                    style={activeCarrier === id ? { background: "var(--c-primary)", borderColor: "var(--c-primary)" } : {}}
+                  >
+                    <img src={logo} alt={label} className="h-4 w-auto" onError={(e) => { e.target.style.display = "none"; }} />
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -1373,65 +1409,59 @@ function App() {
                 return (
                   <div
                     key={pkg.id}
-                    className="group bg-white rounded-2xl border border-gray-200/80 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden relative"
+                    className="bp-card flex flex-col overflow-hidden relative pkg-stripe"
                   >
                     {pkg.isHot && (
-                      <div className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-bl-2xl z-10 shadow">
-                        מבצע מומלץ
-                      </div>
+                      <div className="section-label absolute top-3 right-3 z-10 !mb-0 !rounded-lg">חם</div>
                     )}
-                    {pkg.badge && (
-                      <div className={`absolute top-0 ${pkg.isHot ? "left-0 rounded-br-2xl" : "right-0 rounded-bl-2xl"} bg-amber-400 text-slate-900 text-xs font-bold px-4 py-2 z-10 shadow`}>
-                        {pkg.badge}
-                      </div>
+                    {pkg.badge && !pkg.isHot && (
+                      <div className="section-label absolute top-3 right-3 z-10 !mb-0 !rounded-lg">{pkg.badge}</div>
                     )}
 
-                    {/* ראש צבעוני – לוגו עגול במרכז (קומפקטי) */}
-                    <div className={`${headerClass} px-4 pt-4 pb-4 text-white text-center relative overflow-hidden`}>
+                    {/* Header */}
+                    <div className={`${headerClass} px-4 pt-5 pb-4 text-white text-center relative overflow-hidden`}>
                       <div className="absolute inset-0 bg-black/10" />
                       <div className="relative z-10 flex flex-col items-center">
                         {pkg.logoUrl ? (
-                          <img src={pkg.logoUrl} alt={displayName} className="w-20 h-20 object-contain bg-white rounded-full p-1 shadow-lg border-2 border-white/50 mb-2" />
+                          <img src={pkg.logoUrl} alt={displayName} className="w-16 h-16 object-contain bg-white rounded-full p-1 shadow-md border-2 border-white/40 mb-2" />
                         ) : (
-                          <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mb-2 border-2 border-white/50 [&>div]:scale-150">
+                          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-2 border-2 border-white/40 [&>div]:scale-125">
                             <ProviderLogo provider={pkg.provider} url={null} />
                           </div>
                         )}
-                        <h3 className="text-lg font-bold tracking-tight opacity-95">{displayName}</h3>
+                        <h3 className="text-base font-bold tracking-tight">{displayName}</h3>
                         <div className="flex justify-center items-baseline gap-1 mt-1.5">
-                          <span className="text-4xl font-extrabold tracking-tight">{formatPrice(pkg.price)}</span>
-                          <span className="text-xl font-semibold mr-0.5">₪</span>
+                          <span className="text-3xl font-extrabold">{formatPrice(pkg.price)}</span>
+                          <span className="text-lg font-semibold">₪</span>
                         </div>
-                        <p className="text-xs opacity-90 font-medium">/חודש</p>
-                        {pkg.priceDetail && (
-                          <p className="text-xs opacity-95 mt-1 max-w-xs leading-snug">{pkg.priceDetail}</p>
-                        )}
+                        <p className="text-xs opacity-80">/חודש</p>
+                        {pkg.priceDetail && <p className="text-xs opacity-90 mt-1">{pkg.priceDetail}</p>}
                       </div>
                     </div>
 
-                    {/* גוף הכרטיס – יתרונות + כפתור */}
-                    <div className="p-6 flex-grow flex flex-col bg-gradient-to-b from-white to-slate-50/60">
-                      <ul className="space-y-3.5 mb-6">
+                    {/* Body */}
+                    <div className="p-5 flex-grow flex flex-col">
+                      <ul className="space-y-2.5 mb-5">
                         {features.map((feature, idx) => (
-                          <li key={idx} className="flex items-start gap-3 text-sm text-slate-700">
-                            <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                              <Check size={12} />
+                          <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                            <span className="mt-0.5 flex-shrink-0 w-4.5 h-4.5 text-emerald-500">
+                              <Check size={14} />
                             </span>
-                            <span className="leading-snug font-medium">{feature}</span>
+                            <span className="leading-snug">{feature}</span>
                           </li>
                         ))}
                         {pkg.afterPrice && (
-                          <li className="flex items-start gap-3 text-sm text-slate-500 mt-3 pt-3 border-t border-dashed border-slate-200">
-                            <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center flex-shrink-0 text-xs font-bold">i</span>
-                            <span className="font-medium">{pkg.afterPrice}</span>
+                          <li className="flex items-start gap-2 text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
+                            <span className="shrink-0 font-bold">•</span>
+                            <span>{pkg.afterPrice}</span>
                           </li>
                         )}
                       </ul>
                       <button
                         onClick={() => handleWhatsAppClick(pkg)}
-                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-xl mt-auto"
+                        className="btn btn-whatsapp w-full mt-auto"
                       >
-                        <MessageCircle size={22} />
+                        <MessageCircle size={18} />
                         להצטרפות
                       </button>
                     </div>
@@ -1441,10 +1471,7 @@ function App() {
             </div>
             {hasMorePackages && ((t.btnShowMorePackages ?? "").trim() || isEditMode) && (
               <div className="mt-8 text-center">
-                <button
-                  onClick={() => setPackagesVisibleCount(filteredPackages.length)}
-                  className="px-8 py-4 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold transition shadow-md"
-                >
+                <button onClick={() => setPackagesVisibleCount(sortedPackages.length)} className="btn btn-primary">
                   <EditableText type="siteTexts" editKey="btnShowMorePackages" value={t.btnShowMorePackages} placeholder="הראה עוד" />
                 </button>
               </div>
@@ -1457,11 +1484,14 @@ function App() {
 
       {/* Locations Section */}
       {v.locations !== false && (
-      <section id="locations" className="py-16 bg-slate-50">
+      <section id="locations" className="py-20 bg-slate-50 border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center text-[#1e3a5f] mb-12">
-            <EditableText type="siteTexts" editKey="locationsTitle" value={t.locationsTitle} as="span" placeholder="הסניפים שלנו" />
-          </h2>
+          <div className="text-center mb-10">
+            <span className="section-label">מיקומים</span>
+            <h2 className="section-title">
+              <EditableText type="siteTexts" editKey="locationsTitle" value={t.locationsTitle} as="span" placeholder="הסניפים שלנו" />
+            </h2>
+          </div>
           <div className="grid md:grid-cols-2 gap-8">
             {siteConfig.locations.map((loc, idx) => (
               <LocationCard
@@ -1470,6 +1500,7 @@ function App() {
                 address={loc.address}
                 hours={loc.hours}
                 phone={loc.phone}
+                phoneDisplay={loc.phoneDisplay}
               />
             ))}
           </div>
@@ -1477,61 +1508,108 @@ function App() {
       </section>
       )}
 
-      {/* Footer – צבעי ביפון */}
-      <footer className="bg-[#1e3a5f] text-sky-100/90 py-12">
+      {/* Testimonials */}
+      <section className="py-20 bg-white border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <span className="section-label">לקוחות מרוצים</span>
+            <h2 className="section-title">מה אומרים עלינו</h2>
+            <p className="section-sub">מאות ביקורות 5 כוכבים בגוגל</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { name:"Aron Rosenberg", text:"ממליץ בחום רב. שירות מצויין, אנשים הוגנים ושירותיים מאוד.", stars:5 },
+              { name:"צבי ויס", text:"קיבלתי שירות ממשה, מעל ומעבר למצופה. ממליץ לכל מי שרוצה לרכוש מכשיר בחנות איכותית ולקבל שירות סבלני, אכפתי ומקצועי.", stars:5 },
+              { name:"יוחנן טרבלו", text:"הגענו לחנות אחרי אכזבות מכל מיני חנויות, והופתענו מהשירות, הזמינות, הדאגה והאיכפתיות. שווה כל שקל, פשוט אלוף העולם יוסי!", stars:5 },
+              { name:"חיים רובין", text:"ממליץ בחום על ביפון, חנות עם אבא! יוסי בחור נשמה שנותן את כל כולו ללקוח וכך גם בוחר את העובדים אצלו. לא תתחרטו!", stars:5 },
+              { name:"Avraham Turak", text:"שירות מצוין, מחירים הוגנים וצוות מקצועי ואדיב. הגעתי עם בעיה בטלפון וקיבלתי מענה מהיר ויעיל. מקום שאחזור אליו שוב!", stars:5 },
+              { name:"ב.ר ריבלין", text:"תמיד קונה רק ביפון! שירות מעולה, מחירים טובים ואנשים שאכפת להם. מומלץ מאוד.", stars:5 },
+            ].map(({ name, text, stars }) => (
+              <div key={name} className="bp-card p-5 flex flex-col gap-3">
+                <div className="flex gap-0.5">
+                  {Array.from({length:stars}).map((_,i)=><Star key={i} size={14} className="text-amber-400"/>)}
+                </div>
+                <p className="text-slate-600 text-sm leading-relaxed flex-grow">"{text}"</p>
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <div className="w-8 h-8 rounded-full bg-[#1e3a5f]/10 flex items-center justify-center text-[#1e3a5f] font-bold text-sm">
+                    {name[0]}
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">{name}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── טופס לידים ── */}
+      <LeadCaptureSection />
+
+      {/* Footer */}
+      <footer className="bg-slate-900 text-slate-400 py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8 text-sm">
             <div>
-              <h3 className="text-white font-bold text-lg mb-4">
+              <h3 className="text-white font-bold text-base mb-3">
                 <EditableText type="siteTexts" editKey="footerTitle" value={t.footerTitle} as="span" placeholder="ביפון B-Phone – תקשורת סלולרית" />
               </h3>
-              <p className="mb-4">
+              <p className="leading-relaxed text-slate-400">
                 <EditableText type="siteTexts" editKey="footerDesc" value={t.footerDesc} as="span" placeholder="הבית של הסלולר הכשר והחכם באזור..." />
               </p>
             </div>
             <div>
-              <h4 className="text-white font-bold mb-4">ניווט מהיר</h4>
+              <h4 className="text-white font-bold mb-3">ניווט מהיר</h4>
               <ul className="space-y-2">
                 {v.featured !== false && hasFeatured && <li><a href="#featured" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navFeatured" value={t.navFeatured} placeholder="מבצעים מומלצים" /></a></li>}
-                {v.packages !== false && <li><a href="#packages" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navPackages" value={t.navPackages} placeholder="ניוד קווים" /></a></li>}
+                {v.packages !== false && <li><a href="#packages" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navPackages" value={t.navPackages} placeholder="חבילות סלולר" /></a></li>}
                 {v.products !== false && <li><a href="#products" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navProducts" value={t.navProducts} placeholder="אביזרים ומבצעים" /></a></li>}
-                {v.locations !== false && <li><a href="#locations" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navLocations" value={t.navLocations} placeholder="צור קשר" /></a></li>}
+                {v.locations !== false && <li><a href="#locations" className="hover:text-orange-400 transition"><EditableText type="siteTexts" editKey="navLocations" value={t.navLocations} placeholder="סניפים" /></a></li>}
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-bold mb-4">מידע נוסף</h4>
-              <p>מצאת טעות במחיר? <a href="#packages" className="underline hover:text-orange-400">דווח לנו</a></p>
-              <p className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => setAccOpen(true)}
-                  className="text-sky-200 hover:text-orange-400 underline cursor-pointer text-sm"
-                  aria-label="הגדרות נגישות"
-                >
-                  נגישות
-                </button>
-              </p>
-              <p className="mt-3 text-sky-200/80 text-xs leading-relaxed">
+              <h4 className="text-white font-bold mb-3">יצירת קשר</h4>
+              <p className="text-xs leading-relaxed text-slate-500 mb-3">
                 המחירים והמבצעים באחריות הספקים ונתונים לשינוי בהתאם לתקנון החברות. ט.ל.ח
               </p>
-              <p className="mt-3">© כל הזכויות שמורות לבי-פון תקשורת <a href="/admin.html" className="no-underline hover:no-underline hover:text-inherit cursor-pointer text-inherit">2026</a></p>
+              <button
+                type="button"
+                onClick={() => setAccOpen(true)}
+                className="text-slate-400 hover:text-orange-400 underline cursor-pointer text-xs"
+                aria-label="הגדרות נגישות"
+              >
+                נגישות
+              </button>
+              <p className="mt-3 text-slate-600 text-xs">© כל הזכויות שמורות לבי-פון תקשורת <a href="/admin.html" className="text-slate-600 hover:text-slate-400">2026</a></p>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* כפתור חזרה לראש הדף – מימין, מופיע רק אחרי גלילה */}
+      {/* כפתור WhatsApp צף – תמיד מוצג בפינה הימנית התחתונה */}
+      <a
+        href={`https://wa.me/972${getWhatsAppNumber()}?text=${encodeURIComponent("היי B-Phone, הגעתי מהאתר ואשמח לפרטים!")}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-[#25D366] text-white shadow-md hover:bg-[#1ebe5d] hover:shadow-lg rounded-full px-4 py-3 font-semibold text-sm transition-all duration-200"
+        title="שלח הודעה בוואטסאפ"
+        aria-label="שלח הודעה בוואטסאפ"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+        <span className="text-sm hidden sm:inline">WhatsApp</span>
+      </a>
+
+      {/* כפתור חזרה לראש הדף – מעל כפתור WhatsApp, מופיע רק אחרי גלילה */}
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className={`fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-[#1e3a5f] text-white shadow-lg hover:bg-orange-500 hover:scale-110 flex items-center justify-center transition-all duration-300 ${
+        className={`fixed bottom-[88px] right-6 z-40 w-11 h-11 rounded-full bg-[#1e3a5f] text-white shadow-lg hover:bg-orange-500 hover:scale-110 flex items-center justify-center transition-all duration-300 ${
           showScrollTop ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         title="חזרה לראש הדף"
         aria-label="חזרה לראש הדף"
         aria-hidden={!showScrollTop}
       >
-        <ArrowUp size={24} />
+        <ArrowUp size={22} />
       </button>
 
       {/* נגישות – לוח גדול בתחתית המסך, עם כפתורים ברורים */}
@@ -1622,10 +1700,9 @@ function App() {
                       : "border-slate-600 bg-slate-800/60 hover:bg-slate-700/80"
                   }`}
                 >
-                  <span className="text-xl mb-1">🔗</span>
+                  <span className="text-xl mb-1">—</span>
                   <span>הדגשת קישורים</span>
                 </button>
-
 
                 <button
                   type="button"
@@ -1648,7 +1725,6 @@ function App() {
           </div>
         </div>
       )}
-
 
       {productDetailOpen && (
         <ProductDetailSheet
@@ -1733,6 +1809,13 @@ function App() {
         </>,
         document.body
       )}
+      {quickLead && (
+        <QuickLeadModal
+          productName={quickLead.productName}
+          waUrl={quickLead.waUrl}
+          onClose={() => setQuickLead(null)}
+        />
+      )}
     </div>
     </EditModeContext.Provider>
   );
@@ -1766,10 +1849,7 @@ function getPackageFeatures(pkg) {
 }
 
 function getProviderDisplayName(pkg) {
-  const he = pkg.providerNameHe || pkg.providerName || pkg.provider;
-  const en = pkg.provider;
-  if (he === en || !he) return en;
-  return `${he} · ${en}`;
+  return pkg.providerNameHe || pkg.providerName || pkg.provider;
 }
 
 function ProviderLogo({ provider, url }) {
@@ -1824,10 +1904,10 @@ function TabButton({ active, onClick, label, icon }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
+      className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all whitespace-nowrap ${
         active
-          ? "bg-blue-600 text-white shadow-md"
-          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          ? "bg-[#1e3a5f] text-white shadow-sm"
+          : "text-slate-600 hover:bg-slate-100 hover:text-[#1e3a5f]"
       }`}
     >
       {icon} {label}
@@ -1835,19 +1915,111 @@ function TabButton({ active, onClick, label, icon }) {
   );
 }
 
+function QuickLeadModal({ productName, waUrl, onClose }) {
+  const [name, setName]     = React.useState("");
+  const [phone, setPhone]   = React.useState("");
+  const [branch, setBranch] = React.useState("בית שמש");
+  const [status, setStatus] = React.useState("idle"); // idle | loading | success
+  const [err, setErr]       = React.useState("");
+
+  const openWa = () => { window.open(waUrl, "_blank"); onClose(); };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) return;
+    setStatus("loading");
+    setErr("");
+    try {
+      const res = await fetch("https://bippon-crm.vercel.app/api/leads/public", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), phone: phone.trim(), product: productName, branch }),
+      });
+      if (!res.ok) { const d = await res.json().catch(()=>{}); throw new Error(d?.error || "שגיאה"); }
+      setStatus("success");
+      setTimeout(() => { window.open(waUrl, "_blank"); onClose(); }, 1200);
+    } catch (ex) {
+      setErr(ex.message || "שגיאה, נסה שוב");
+      setStatus("idle");
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 px-4"
+      dir="rtl"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 left-3 text-gray-400 hover:text-gray-700 text-xl font-bold leading-none"
+          aria-label="סגור"
+        >×</button>
+
+        {status === "success" ? (
+          <div className="text-center py-4">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+              <Check size={28} className="text-emerald-600" />
+            </div>
+            <p className="font-bold text-green-700 text-lg">הפרטים התקבלו!</p>
+            <p className="text-gray-500 text-sm mt-1">מעביר לוואטסאפ...</p>
+          </div>
+        ) : (
+          <>
+            <h3 className="font-bold text-lg text-[#1e3a5f] mb-1">השאר פרטים ונחזור אליך</h3>
+            {productName && <p className="text-sm text-gray-500 mb-4">בנוגע ל: {productName}</p>}
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <input
+                type="text" value={name} onChange={e => setName(e.target.value)} required
+                placeholder="שם מלא *"
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-500 outline-none"
+              />
+              <input
+                type="tel" value={phone} onChange={e => setPhone(e.target.value)} required
+                placeholder="מספר טלפון *" dir="ltr"
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-500 outline-none"
+              />
+              <select value={branch} onChange={e => setBranch(e.target.value)}
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-500 outline-none bg-white">
+                <option value="בית שמש">סניף בית שמש</option>
+                <option value="ביתר עילית">סניף ביתר עילית</option>
+              </select>
+              {err && <p className="text-red-500 text-xs">{err}</p>}
+              <button
+                type="submit" disabled={status === "loading"}
+                className="w-full bg-[#1e3a5f] hover:bg-[#2a4a6f] text-white font-bold py-2.5 rounded-xl transition disabled:opacity-60 text-sm"
+              >
+                {status === "loading" ? "שולח..." : "שלח ופתח וואטסאפ"}
+              </button>
+            </form>
+            <button
+              type="button" onClick={openWa}
+              className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-3 underline"
+            >
+              דלג ישר לוואטסאפ ←
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ServiceCard({ iconUrl, defaultIcon: DefaultIcon, title, desc }) {
   const titleStr = typeof title === "string" ? title : "";
   return (
-    <div className="flex flex-col items-center p-6 bg-slate-50 rounded-xl hover:bg-blue-50 transition border border-transparent hover:border-blue-100">
-      <div className="text-blue-600 mb-4 bg-white p-4 rounded-full shadow-sm w-16 h-16 flex items-center justify-center">
+    <div className="bp-card flex flex-col items-center p-7 text-center group">
+      <div className="text-[#1e3a5f] mb-5 bg-gradient-to-br from-blue-50 to-orange-50 p-4 rounded-2xl w-[68px] h-[68px] flex items-center justify-center border border-slate-100 group-hover:scale-110 transition-transform duration-300">
         {iconUrl ? (
-          <img src={iconUrl} alt={titleStr || "שירות"} className="w-8 h-8 object-contain" />
+          <img src={iconUrl} alt={titleStr || "שירות"} className="w-9 h-9 object-contain" />
         ) : (
           <DefaultIcon size={32} />
         )}
       </div>
-      <h3 className="font-bold text-lg mb-2">{title}</h3>
-      <p className="text-sm text-gray-500">{desc}</p>
+      <h3 className="font-bold text-base mb-2 text-slate-800">{title}</h3>
+      <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
     </div>
   );
 }
@@ -1861,7 +2033,7 @@ function FeatureRow({ label, value }) {
   );
 }
 
-function LocationCard({ city, address, hours, phone }) {
+function LocationCard({ city, address, hours, phone, phoneDisplay }) {
   const wazeQuery = [address, city].filter(Boolean).join(", ");
   const wazeUrl = wazeQuery
     ? `https://www.waze.com/ul?q=${encodeURIComponent(wazeQuery)}`
@@ -1875,9 +2047,9 @@ function LocationCard({ city, address, hours, phone }) {
     : "";
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border-t-4 border-blue-600 h-full flex flex-col overflow-hidden">
+    <div className="bp-card h-full flex flex-col overflow-hidden">
       {mapsEmbedUrl && (
-        <div className="w-full aspect-square max-h-72 bg-slate-100">
+        <div className="w-full aspect-video max-h-56 bg-slate-100">
           <iframe
             src={mapsEmbedUrl}
             title={`מיקום החנות ${city}`}
@@ -1887,53 +2059,34 @@ function LocationCard({ city, address, hours, phone }) {
           />
         </div>
       )}
-      <div className="p-8 flex flex-col flex-1">
-        <div className="flex items-center gap-3 mb-6">
-          <MapPin className="text-blue-600" />
-          <h3 className="text-2xl font-bold">{city}</h3>
+      <div className="p-6 flex flex-col flex-1">
+        <div className="flex items-center gap-2.5 mb-5">
+          <MapPin size={20} className="text-[#1e3a5f]" />
+          <h3 className="text-xl font-bold text-slate-800">{city}</h3>
         </div>
-
-        <div className="space-y-4 text-gray-600 flex-grow">
-          <p className="flex items-start gap-3">
-            <span className="font-bold min-w-[60px]">כתובת:</span>
-            {address}
+        <div className="space-y-3 text-slate-600 flex-grow text-sm">
+          <p className="flex items-start gap-2">
+            <MapPin size={16} className="mt-0.5 text-slate-400 shrink-0" />
+            <span>{address}</span>
           </p>
-          <div className="flex items-start gap-3">
-            <Clock className="w-5 h-5 mt-1 text-gray-400" />
+          <div className="flex items-start gap-2">
+            <Clock size={16} className="mt-0.5 text-slate-400 shrink-0" />
             <div>
-              <p className="font-bold text-slate-900 mb-1">שעות פתיחה:</p>
-              <div className="whitespace-pre-wrap">{hours}</div>
+              <p className="font-semibold text-slate-700 mb-0.5">שעות פתיחה</p>
+              <div className="whitespace-pre-wrap text-slate-500">{hours}</div>
             </div>
           </div>
-          <p className="flex items-center gap-3 pt-4 border-t border-gray-100">
-            <Phone className="w-5 h-5 text-gray-400" />
-            <a
-              href={`tel:${phone}`}
-              className="font-bold text-xl text-blue-600 hover:underline"
-            >
-              {phone}
-            </a>
+          <p className="flex items-center gap-2 pt-3 border-t border-slate-100">
+            <Phone size={16} className="text-slate-400 shrink-0" />
+            <a href={`tel:${phone}`} className="font-bold text-lg text-[#1e3a5f] hover:text-orange-500 transition">{phoneDisplay || phone}</a>
           </p>
         </div>
       </div>
-
-      <div className="px-8 pb-6 flex flex-col sm:flex-row gap-3">
-        <a
-          href={wazeUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition text-center"
-        >
-          נווט ב-Waze
-        </a>
-        <a
-          href={mapsSearchUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 bg-white text-blue-700 border border-blue-600 py-2 rounded-lg font-medium hover:bg-blue-50 transition text-center"
-        >
-          פתח בגוגל מפות
-        </a>
+      <div className="px-6 pb-5 flex flex-col sm:flex-row gap-2.5">
+        <a href={wazeUrl} target="_blank" rel="noopener noreferrer"
+          className="btn btn-navy btn-sm flex-1 text-center">נווט ב-Waze</a>
+        <a href={mapsSearchUrl} target="_blank" rel="noopener noreferrer"
+          className="btn btn-ghost btn-sm flex-1 text-center">גוגל מפות</a>
       </div>
     </div>
   );
@@ -1944,23 +2097,6 @@ function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp,
   const images = (product.images && product.images.length > 0) ? product.images : (product.imageUrl ? [product.imageUrl] : []);
   const [imageIndex, setImageIndex] = useState(Math.min(startImageIndex, Math.max(0, images.length - 1)));
   const mainImage = images[imageIndex];
-  const swipeStartXRef = React.useRef(null);
-
-  const showPrevImage = () => setImageIndex((i) => (i - 1 + images.length) % images.length);
-  const showNextImage = () => setImageIndex((i) => (i + 1) % images.length);
-
-  const onSwipeStart = (x) => {
-    swipeStartXRef.current = x;
-  };
-  const onSwipeEnd = (x) => {
-    if (swipeStartXRef.current == null) return;
-    const deltaX = x - swipeStartXRef.current;
-    swipeStartXRef.current = null;
-    if (Math.abs(deltaX) < 40) return;
-    // RTL: כיוון ההחלקה הפוך (ימין = הבא, שמאל = הקודם)
-    if (deltaX > 0) showNextImage();
-    else showPrevImage();
-  };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 md:p-5" dir="rtl">
@@ -1984,42 +2120,18 @@ function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp,
         <div className="flex-1 min-h-0 overflow-y-auto">
           {images.length > 0 && (
             <div className="relative bg-slate-50 border-b border-slate-100">
-              <div
-                className="aspect-square max-h-[45vh] w-full flex items-center justify-center p-4 cursor-grab active:cursor-grabbing select-none"
-                style={{ touchAction: images.length > 1 ? "pan-y" : "auto" }}
-                onTouchStart={(e) => {
-                  if (images.length < 2) return;
-                  onSwipeStart(e.changedTouches[0].clientX);
-                }}
-                onTouchEnd={(e) => {
-                  if (images.length < 2) return;
-                  onSwipeEnd(e.changedTouches[0].clientX);
-                }}
-                onMouseDown={(e) => {
-                  if (images.length < 2) return;
-                  onSwipeStart(e.clientX);
-                }}
-                onMouseUp={(e) => {
-                  if (images.length < 2) return;
-                  onSwipeEnd(e.clientX);
-                }}
-                onMouseLeave={() => {
-                  swipeStartXRef.current = null;
-                }}
-              >
+              <div className="aspect-square max-h-[45vh] w-full flex items-center justify-center p-4">
                 <img
                   src={mainImage}
                   alt={product.name}
                   className="max-w-full max-h-full object-contain rounded-xl"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
                 />
               </div>
               {images.length > 1 && (
                 <>
                   <button
                     type="button"
-                    onClick={showPrevImage}
+                    onClick={() => setImageIndex((i) => (i - 1 + images.length) % images.length)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
                     aria-label="תמונה קודמת"
                   >
@@ -2027,7 +2139,7 @@ function ProductDetailSheet({ product, startImageIndex = 0, onClose, onWhatsApp,
                   </button>
                   <button
                     type="button"
-                    onClick={showNextImage}
+                    onClick={() => setImageIndex((i) => (i + 1) % images.length)}
                     className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-white transition"
                     aria-label="תמונה הבאה"
                   >
@@ -2213,10 +2325,10 @@ function ProductCard({ product, onWhatsApp, onShare, onOpenDetail }) {
   const hasLongDescription = product.description && product.description.trim().length > 100;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full min-h-[420px] relative group">
+    <div className="bp-card overflow-hidden flex flex-col h-full relative group cursor-pointer">
       {mainImage && (
         <div
-          className="w-full h-48 sm:h-52 bg-slate-100 flex-shrink-0 relative cursor-pointer overflow-hidden"
+          className="w-full h-52 sm:h-56 bg-slate-50 flex-shrink-0 relative cursor-pointer overflow-hidden"
           onClick={openDetail(0)}
           role="button"
           tabIndex={0}
@@ -2227,7 +2339,7 @@ function ProductCard({ product, onWhatsApp, onShare, onOpenDetail }) {
           <img
             src={mainImage}
             alt={product.name}
-            className="w-full h-full object-cover transition group-hover:scale-[1.03] duration-300"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center">
             <span className="opacity-0 group-hover:opacity-100 transition text-white text-sm font-medium bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl">
@@ -2313,13 +2425,8 @@ function ProductCard({ product, onWhatsApp, onShare, onOpenDetail }) {
             </div>
           )}
           <button
-            onClick={() =>
-              onWhatsApp({
-                ...product,
-                category: "product",
-              })
-            }
-            className="px-4 py-2.5 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 flex items-center gap-1.5 shrink-0"
+            onClick={() => onWhatsApp({ ...product, category: "product" })}
+            className="btn btn-whatsapp btn-sm shrink-0"
           >
             <MessageCircle size={16} />
             לפרטים
@@ -2327,6 +2434,114 @@ function ProductCard({ product, onWhatsApp, onShare, onOpenDetail }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// --- טופס לידים — מחובר ל-CRM של ביפון ---
+const CRM_LEAD_ENDPOINT = "https://bippon-crm.vercel.app/api/leads/public";
+
+function LeadCaptureSection({ defaultBranch = "לא משנה", defaultProduct = "" }) {
+  const [name, setName]       = React.useState("");
+  const [phone, setPhone]     = React.useState("");
+  const [interest, setInterest] = React.useState(defaultProduct);
+  const [notes, setNotes]     = React.useState("");
+  const [branch, setBranch]   = React.useState(defaultBranch);
+  const [status, setStatus]   = React.useState("idle");
+  const [errMsg, setErrMsg]   = React.useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) return;
+    setStatus("loading");
+    try {
+      const res = await fetch(CRM_LEAD_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), phone: phone.trim(), interest, notes: notes.trim() || null, branch }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "שגיאה");
+      setStatus("success");
+    } catch (err) {
+      setErrMsg(err.message || "שגיאה, נסה שוב");
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 4000);
+    }
+  };
+
+  if (status === "success") {
+    return (
+      <section className="bg-slate-50 py-16 border-t border-gray-100" dir="rtl">
+        <div className="max-w-lg mx-auto px-4 text-center">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <Check size={32} className="text-emerald-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">הפרטים התקבלו!</h2>
+          <p className="text-slate-500">נציג שלנו יחזור אליך בהקדם</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section id="contact" className="bg-slate-50 py-16 border-t border-gray-100" dir="rtl">
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="text-center mb-8">
+          <span className="section-label">יצירת קשר</span>
+          <h2 className="section-title mt-2">רוצה שנחזור אליך?</h2>
+          <p className="section-sub">השאר שם וטלפון — נציג יחזור אליך תוך שעות ספורות</p>
+        </div>
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 md:p-8 flex flex-col gap-4 shadow-md border border-slate-200">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-slate-700 text-sm font-semibold mb-1.5">שם מלא</label>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="ישראל ישראלי"
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-slate-700 text-sm font-semibold mb-1.5">מספר טלפון</label>
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} required placeholder="05X-XXXXXXX" dir="ltr"
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent" />
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-slate-700 text-sm font-semibold mb-1.5">מה מעניין אותך?</label>
+              <select value={interest} onChange={e => setInterest(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400">
+                <option value="">בחר נושא...</option>
+                <option value="סלולר">חבילת סלולר</option>
+                <option value="מכשיר">מכשיר טלפון</option>
+                <option value="אינטרנט">אינטרנט ביתי</option>
+                <option value="ניוד">ניוד קו</option>
+                <option value="אחר">אחר</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-slate-700 text-sm font-semibold mb-1.5">סניף מועדף</label>
+              <select value={branch} onChange={e => setBranch(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-400">
+                <option value="לא משנה">לא משנה — כל סניף</option>
+                <option value="בית שמש">סניף בית שמש</option>
+                <option value="ביתר עילית">סניף ביתר עילית</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-slate-700 text-sm font-semibold mb-1.5">הערות (אופציונלי)</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+              placeholder="כל דבר נוסף שתרצה לציין..."
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none" />
+          </div>
+          {status === "error" && <p className="text-red-500 text-sm text-center">{errMsg}</p>}
+          <button type="submit" disabled={status === "loading"}
+            className="btn btn-primary w-full text-base disabled:opacity-60 mt-1">
+            {status === "loading" ? "שולח..." : "שלח פרטים"}
+          </button>
+          <p className="text-slate-400 text-xs text-center">הפרטים שלך מאובטחים ולא יועברו לגורם שלישי</p>
+        </form>
+      </div>
+    </section>
   );
 }
 
