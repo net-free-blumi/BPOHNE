@@ -22,7 +22,7 @@ function isAllowedAdmin(email) {
   return ALLOWED_ADMIN_EMAILS.some((e) => e.toLowerCase() === email.trim().toLowerCase());
 }
 // דומיין ראשי לאתר (ריק = לא בודקים). אם נכנסים מכתובת אחרת – תוצג אזהרה.
-const MAIN_ADMIN_DOMAIN = "b-phone.netlify.app"; // לדוגמה: "bphone.co.il" או "your-site.netlify.app"
+const MAIN_ADMIN_DOMAIN = ["b-phone.netlify.app", "lambent-haupia-3199b4.netlify.app"] // לדוגמה: "bphone.co.il" או "your-site.netlify.app"
 function getLoginErrorHebrew(code, message) {
   const t = {
     "auth/invalid-credential": "פרטי התחברות לא נכונים. האימייל או הסיסמה שגויים, או שאין משתמש רשום עם אימייל זה.",
@@ -252,9 +252,9 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
 
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
   const isLocalDev = hostname === "localhost" || hostname === "127.0.0.1";
-  const mainDomain = MAIN_ADMIN_DOMAIN && MAIN_ADMIN_DOMAIN.trim();
-  const isWrongDomain = mainDomain && hostname !== mainDomain && !hostname.endsWith("." + mainDomain);
-  const displayError = initialError || error;
+const allowedDomains = Array.isArray(MAIN_ADMIN_DOMAIN) ? MAIN_ADMIN_DOMAIN : (MAIN_ADMIN_DOMAIN ? [MAIN_ADMIN_DOMAIN] : []);
+
+  const isWrongDomain = allowedDomains.length > 0 && !allowedDomains.some(d => hostname === d || hostname.endsWith("." + d));  const displayError = initialError || error;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
