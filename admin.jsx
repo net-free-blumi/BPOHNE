@@ -22,7 +22,7 @@ function isAllowedAdmin(email) {
   return ALLOWED_ADMIN_EMAILS.some((e) => e.toLowerCase() === email.trim().toLowerCase());
 }
 // דומיין ראשי לאתר (ריק = לא בודקים). אם נכנסים מכתובת אחרת – תוצג אזהרה.
-const MAIN_ADMIN_DOMAIN = ["b-phone.netlify.app", "lambent-haupia-3199b4.netlify.app"] // לדוגמה: "bphone.co.il" או "your-site.netlify.app"
+const MAIN_ADMIN_DOMAIN = ["b-phone.netlify.app", "lambent-haupia-3199b4.netlify.app"];
 function getLoginErrorHebrew(code, message) {
   const t = {
     "auth/invalid-credential": "פרטי התחברות לא נכונים. האימייל או הסיסמה שגויים, או שאין משתמש רשום עם אימייל זה.",
@@ -79,7 +79,7 @@ async function callGeminiAdmin(prompt, systemInstruction, { retries = 2 } = {}) 
   throw lastErr;
 }
 
-/** משתמש באותו Gemini של ביביפ בוט – מחזיר המלצות למוצר (תיאור, תגית, תגיות) בסגנון ביפון */
+/** משתמש באותו Gemini של ביביפ בוט – מחזיר מפרט מלא + תיאור + תגית + תגיות בסגנון ביפון */
 async function suggestProductWithAI(productName, techSpecsText) {
   if (!GEMINI_PROXY_URL || !productName || !String(productName).trim()) return null;
   const name = String(productName).trim();
@@ -88,19 +88,40 @@ async function suggestProductWithAI(productName, techSpecsText) {
 
   const systemInstruction = hasSpecs
     ? `אתה עוזר לחנות ביפון תקשורת סלולרית. תחזיר רק JSON תקני, בלי טקסט לפני או אחרי.
-שם המוצר שקיבלת הוא המדויק – אל תשנה אותו, אל תוסיף Pro/Ultra/Plus/FE/SE אם הם אינם במקור.
-השתמש רק בעובדות שמופיעות במפרט הטכני שניתן. אל תמציא נתונים חסרים.
-תיאור: פסקה קצרה + כל ✔ בשורה נפרדת (אל תשים כמה ✔ באותה שורה).
-תגית: מילה אחת עד שתיים, אטרקטיבית.
-תגיות: מותג, דגם, מאפיינים עיקריים, מופרדים בפסיק.`
+שם המוצר שקיבלת הוא המדויק – אל תשנה אותו.
+השתמש רק בעובדות שמופיעות במפרט הטכני שניתן. אל תמציא נתונים חסרים – כתוב "" לשדות לא ידועים.
+תיאור: פסקה קצרה שיווקית + כל ✔ בשורה נפרדת.
+specSheet: מלא כל שדה אם המידע קיים במפרט שסופק, אחרת "".`
     : `אתה עוזר לחנות ביפון תקשורת סלולרית. תחזיר רק JSON תקני, בלי טקסט לפני או אחרי.
-שם המוצר שקיבלת הוא המדויק – אל תשנה אותו, אל תוסיף Pro/Ultra/Plus/FE/SE אם הם אינם במקור.
-כתוב על הדגם הספציפי הזה. אם אינך בטוח בנתון טכני – דלג עליו, אל תמציא.
-תיאור: פסקה קצרה + כל ✔ בשורה נפרדת (אל תשים כמה ✔ באותה שורה).
-תגית: קצרה – "מבצע חם!", "חדש בסניפים", "יחידה אחרונה".
-תגיות: מותג, דגם, תכונות מרכזיות, מופרדות בפסיק.`;
+שם המוצר שקיבלת הוא המדויק – אל תשנה אותו.
+כתוב על הדגם הספציפי הזה לפי הידע שלך. אם אינך בטוח בנתון – כתוב "" (אל תמציא).
+תיאור: פסקה קצרה שיווקית + כל ✔ בשורה נפרדת.
+specSheet: מלא כמה שיותר שדות לפי מה שאתה יודע בוודאות על הדגם הזה.`;
 
-  const prompt = `המוצר: "${name}".${specsBlock}\nהחזר JSON: { "description": "...", "badge": "...", "tags": "...", "priceSuggestion": null }`;
+  const prompt = `המוצר: "${name}".${specsBlock}
+החזר JSON בלבד (ללא markdown):
+{
+  "specSheet": {
+    "display": "גודל מסך, סוג פאנל, רזולוציה, קצב רענון",
+    "processor": "שם המעבד",
+    "ram": "X GB",
+    "storage": "X GB",
+    "battery": "XXXX mAh + טעינה מהירה XX ואט",
+    "mainCamera": "Xmp ראשי + Xmp אולטרה-רחב + Xmp טלה",
+    "frontCamera": "Xmp",
+    "os": "Android XX / iOS XX",
+    "connectivity": "5G / WiFi / Bluetooth / NFC",
+    "weight": "XXX גרם",
+    "waterResistance": "IP68 / IP54 / אין",
+    "simSlots": "Dual SIM / eSIM",
+    "specialFeatures": "תכונות מיוחדות"
+  },
+  "description": "...",
+  "badge": "...",
+  "tags": "...",
+  "priceSuggestion": null
+}
+לשדות לא ידועים – כתוב "" בלבד. אסור להמציא נתונים.`;
 
   const detectPoorQuality = (text) => {
     if (!text || text.length < 30) return true;
@@ -136,11 +157,30 @@ async function suggestProductWithAI(productName, techSpecsText) {
       } catch (_) {}
     }
 
+    const rawSpec = parsed.specSheet && typeof parsed.specSheet === "object" ? parsed.specSheet : {};
+    const specSheet = {
+      display: rawSpec.display || "",
+      processor: rawSpec.processor || "",
+      ram: rawSpec.ram || "",
+      storage: rawSpec.storage || "",
+      battery: rawSpec.battery || "",
+      mainCamera: rawSpec.mainCamera || "",
+      frontCamera: rawSpec.frontCamera || "",
+      os: rawSpec.os || "",
+      connectivity: rawSpec.connectivity || "",
+      weight: rawSpec.weight || "",
+      waterResistance: rawSpec.waterResistance || "",
+      simSlots: rawSpec.simSlots || "",
+      specialFeatures: rawSpec.specialFeatures || "",
+    };
+    const hasAnySpec = Object.values(specSheet).some((v) => v && v.trim());
+
     return {
       description,
       badge: typeof parsed.badge === "string" ? parsed.badge : "",
       tagsText: Array.isArray(parsed.tags) ? parsed.tags.join(", ") : (parsed.tags || ""),
       priceSuggestion: typeof parsed.priceSuggestion === "number" ? parsed.priceSuggestion : null,
+      specSheet: hasAnySpec ? specSheet : null,
       provider: result.provider,
       model: result.model,
     };
@@ -252,9 +292,9 @@ function LoginScreen({ onLogin, onLoginGoogle, showToast, initialError, onClearI
 
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
   const isLocalDev = hostname === "localhost" || hostname === "127.0.0.1";
-const allowedDomains = Array.isArray(MAIN_ADMIN_DOMAIN) ? MAIN_ADMIN_DOMAIN : (MAIN_ADMIN_DOMAIN ? [MAIN_ADMIN_DOMAIN] : []);
-
-  const isWrongDomain = allowedDomains.length > 0 && !allowedDomains.some(d => hostname === d || hostname.endsWith("." + d));  const displayError = initialError || error;
+  const allowedDomains = Array.isArray(MAIN_ADMIN_DOMAIN) ? MAIN_ADMIN_DOMAIN : (MAIN_ADMIN_DOMAIN ? [MAIN_ADMIN_DOMAIN] : []);
+  const isWrongDomain = allowedDomains.length > 0 && !allowedDomains.some(d => hostname === d || hostname.endsWith("." + d));
+  const displayError = initialError || error;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1419,6 +1459,7 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
   const [newFiles, setNewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiSpec, setAiSpec] = useState(null);
 
   const handleAiSuggest = async () => {
     const name = (form.name || "").trim();
@@ -1431,6 +1472,7 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
       return;
     }
     setAiLoading(true);
+    setAiSpec(null);
     try {
       const suggested = await suggestProductWithAI(name, form.techSpecsText);
       if (suggested) {
@@ -1441,8 +1483,9 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
           tagsText: suggested.tagsText || f.tagsText,
           price: (f.price !== "" && f.price != null) ? f.price : (suggested.priceSuggestion != null ? String(suggested.priceSuggestion) : f.price),
         }));
+        if (suggested.specSheet) setAiSpec(suggested.specSheet);
         const detail = suggested.model ? `ספק: ${suggested.provider || "AI"} | מודל: ${suggested.model}` : null;
-        if (showToast) showToast("המידע הושלם לפי המלצת AI – ערוך אם צריך", "success", detail);
+        if (showToast) showToast("מפרט AI הושלם – ערוך אם צריך", "success", detail);
       } else {
         if (showToast) showToast("לא התקבלה תשובה מתאימה מ-AI. נסה שוב או מלא ידנית.", "error");
       }
@@ -1480,11 +1523,65 @@ function ProductFormModal({ product, onSave, onClose, showToast }) {
             <p className="text-xs text-slate-500 mb-2">לדוג׳: iPhone 15, Samsung Galaxy S24, תיקון מסך. אחרי הזנת הדגם – לחץ &quot;המלצת AI&quot; למילוי אוטומטי.</p>
             <div className="flex gap-2 flex-wrap">
               <input value={form.name || ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="flex-1 min-w-[200px] border-2 border-slate-200 rounded-lg p-3 text-base" placeholder="שם המוצר" required />
-              <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !GEMINI_PROXY_URL} className="shrink-0 px-4 py-3 rounded-lg font-bold border-2 border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" title={GEMINI_PROXY_URL ? "מלא תיאור, תגית ותגיות לפי דגם המוצר (אותו AI של ביביפ)" : "הוסף GEMINI_PROXY_URL ב-admin.html כמו ב-index.html"}>
-                {aiLoading ? "ממלא..." : "✨ המלצת AI"}
+              <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !GEMINI_PROXY_URL} className="shrink-0 px-4 py-3 rounded-lg font-bold border-2 border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" title={GEMINI_PROXY_URL ? "מפרט מלא + תיאור + תגיות לפי AI" : "הוסף GEMINI_PROXY_URL ב-admin.html כמו ב-index.html"}>
+                {aiLoading ? <span className="flex items-center gap-2"><span className="inline-block w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></span>מנתח...</span> : "✨ מפרט AI"}
               </button>
             </div>
           </div>
+
+          {aiSpec && (() => {
+            const rows = [
+              { icon: "🖥️", label: "מסך",            val: aiSpec.display },
+              { icon: "⚡", label: "מעבד",            val: aiSpec.processor },
+              { icon: "💾", label: "RAM",             val: aiSpec.ram },
+              { icon: "📁", label: "אחסון",           val: aiSpec.storage },
+              { icon: "🔋", label: "סוללה",           val: aiSpec.battery },
+              { icon: "📷", label: "מצלמה ראשית",    val: aiSpec.mainCamera },
+              { icon: "🤳", label: "מצלמה קדמית",    val: aiSpec.frontCamera },
+              { icon: "🤖", label: "מערכת הפעלה",    val: aiSpec.os },
+              { icon: "📡", label: "קישוריות",        val: aiSpec.connectivity },
+              { icon: "⚖️", label: "משקל",            val: aiSpec.weight },
+              { icon: "💧", label: "עמידות מים",      val: aiSpec.waterResistance },
+              { icon: "📶", label: "כרטיסי SIM",      val: aiSpec.simSlots },
+            ].filter((r) => r.val && r.val.trim());
+            return (
+              <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-lg">
+                <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-l from-[#1e3a5f] to-[#2a5298]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📱</span>
+                    <span className="text-white font-bold text-base">{form.name}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-white/60 text-xs">מופק ע"י AI</span>
+                    <button onClick={() => setAiSpec(null)} className="text-white/70 hover:text-white text-lg leading-none" title="סגור">✕</button>
+                  </div>
+                </div>
+                <div className="bg-slate-50 px-5 py-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {rows.map(({ icon, label, val }) => (
+                      <div key={label} className="flex items-start gap-2 bg-white rounded-xl px-3 py-2 border border-slate-100">
+                        <span className="text-lg leading-none mt-0.5">{icon}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-400 leading-tight">{label}</p>
+                          <p className="text-sm font-medium text-slate-800 leading-snug">{val}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {aiSpec.specialFeatures && aiSpec.specialFeatures.trim() && (
+                    <div className="mt-2 flex items-start gap-2 bg-amber-50 rounded-xl px-3 py-2 border border-amber-100">
+                      <span className="text-lg leading-none mt-0.5">✨</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-amber-500 leading-tight">תכונות מיוחדות</p>
+                        <p className="text-sm font-medium text-slate-800 leading-snug">{aiSpec.specialFeatures}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="p-4 bg-slate-50 rounded-xl">
             <label className="block text-sm font-bold text-slate-800 mb-1">מחיר (₪)</label>
             <p className="text-xs text-slate-500 mb-2">המחיר לתצוגה. השאר ריק אם אין מחיר קבוע</p>
