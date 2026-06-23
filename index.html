@@ -91,8 +91,8 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
-    <!-- Babel בדפדפן כדי לתמוך ב־JSX בלי בילד -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel בדפדפן כדי לתמוך ב־JSX בלי בילד (גרסה קבועה – יציבה עם React UMD) -->
+    <script src="https://unpkg.com/@babel/standalone@7.26.10/babel.min.js"></script>
     <!-- Firebase (ענן חינמי) – טעינה רק אם מוגדר ב־firebase-config.js -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
@@ -107,8 +107,42 @@
       // מפתח ImgBB חינמי – להעלאת תמונות מוצרים בלי Firebase Storage. קבל ב: https://api.imgbb.com/
       window.IMGBB_API_KEY = "d812973a77f1d757a2b824ce7f5a1aeb";
     </script>
-    <!-- קוד React של האתר -->
-    <script type="text/babel" src="./app.jsx?v=8" data-presets="react"></script>
+    <!-- קוד React – fetch + Babel.transform (יציב יותר מ-type="text/babel" src) -->
+    <script>
+      (function () {
+        var JSX_URL = "./app.jsx?v=10";
+        function showError(msg) {
+          var root = document.getElementById("root");
+          if (root) {
+            root.innerHTML =
+              '<div style="padding:2rem;font-family:sans-serif;max-width:36rem;margin:auto;text-align:center">' +
+              '<p style="color:#b91c1c;font-weight:700;margin-bottom:.5rem">שגיאה בטעינת האתר</p>' +
+              "<p style=\"color:#475569\">" + msg + "</p></div>";
+          }
+          console.error(msg);
+        }
+        fetch(JSX_URL)
+          .then(function (res) {
+            if (!res.ok) throw new Error("לא ניתן לטעון " + JSX_URL + " (HTTP " + res.status + ")");
+            return res.text();
+          })
+          .then(function (src) {
+            if (/^\s*</.test(src)) {
+              throw new Error(
+                "app.jsx החזיר HTML במקום קוד JSX. השתמש ב-Live Server (בלי מצב SPA) או ב-netlify dev – לא לפתוח index.html ישירות אם השרת מפנה הכל ל-index.html."
+              );
+            }
+            if (typeof Babel === "undefined") throw new Error("Babel לא נטען");
+            var out = Babel.transform(src, { presets: ["react"], sourceType: "script" }).code;
+            var el = document.createElement("script");
+            el.text = out;
+            document.body.appendChild(el);
+          })
+          .catch(function (err) {
+            showError(err.message || String(err));
+          });
+      })();
+    </script>
   </body>
 </html>
 

@@ -10,11 +10,13 @@
   to = "/admin.html"
   status = 200
 
-# SPA – שאר הנתיבים מגיעים ל־index.html
+# SPA – רק נתיבים שלא מתאימים לקובץ סטטי קיים (force=false כברירת מחדל)
+# app.jsx / admin.jsx / firebase-config.js וכו' נשארים נגישים ל-Babel
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
 
 # Edge Function לנתיבי /product/:id – OG tags למוצרים
 [[edge_functions]]

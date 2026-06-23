@@ -549,6 +549,53 @@ ${JSON.stringify(products.map(p => ({ name: p.name, price: p.price, description:
   );
 }
 
+// --- חיפוש גלובלי (שימוש חוזר בפילטרים ובפאנל תוצאות) ---
+const PACKAGE_CATEGORY_LABELS = { kosher: "כשר", "4g": "דור 4", "5g": "דור 5", internet: "אינטרנט ביתי" };
+const SEARCH_PACKAGE_GROUPS = [
+  { key: "5g", label: "חבילות דור 5" },
+  { key: "4g", label: "חבילות דור 4" },
+  { key: "kosher", label: "חבילות כשר" },
+  { key: "internet", label: "אינטרנט ביתי" },
+];
+
+function buildSearchableText(parts) {
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
+
+function getPackageSearchText(pkg) {
+  return buildSearchableText([
+    pkg.sku,
+    pkg.name,
+    pkg.providerNameHe,
+    pkg.providerName,
+    pkg.provider,
+    String(pkg.price),
+    PACKAGE_CATEGORY_LABELS[pkg.category] || pkg.category,
+    (pkg.features && pkg.features.join(" ")) || "",
+    pkg.priceDetail || "",
+    pkg.badge || "",
+    pkg.extras || "",
+  ]);
+}
+
+function getProductSearchText(p) {
+  return buildSearchableText([
+    p.sku,
+    p.name,
+    (p.tags || []).join(" "),
+    p.description,
+    String(p.price ?? ""),
+  ]);
+}
+
+function packageMatchesSearch(pkg, q) {
+  return !q || getPackageSearchText(pkg).includes(q);
+}
+
+function productMatchesSearch(p, q) {
+  return !q || getProductSearchText(p).includes(q);
+}
+
 // --- קומפוננטת האפליקציה הראשית (ללא Firebase, דמו מקומי מקצועי) ---
 function App() {
   const [packages, setPackages] = useState([]);
@@ -813,32 +860,13 @@ function App() {
     setTimeout(tryScroll, 300);
   }, [productHashId, products, productsVisibleCount]);
 
-  // --- מיפוי קטגוריה לטקסט לחיפוש ---
-  const categoryToLabel = { all: "", kosher: "כשר", "4g": "דור 4", "5g": "דור 5", internet: "אינטרנט ביתי" };
+  const trimmedSearch = (searchQuery || "").trim().toLowerCase();
 
   // --- סינון חבילות (טאב + חיפוש חופשי: חברה, מחיר, סוג, כשר, מק״ט וכו') ---
   const filteredPackages = packages.filter((pkg) => {
     if (activeTab !== "all" && pkg.category !== activeTab) return false;
     if (activeCarrier !== "all" && pkg.provider !== activeCarrier) return false;
-    const q = (searchQuery || "").trim().toLowerCase();
-    if (!q) return true;
-    const searchable = [
-      pkg.sku,
-      pkg.name,
-      pkg.providerNameHe,
-      pkg.providerName,
-      pkg.provider,
-      String(pkg.price),
-      categoryToLabel[pkg.category] || pkg.category,
-      (pkg.features && pkg.features.join(" ")) || "",
-      pkg.priceDetail || "",
-      pkg.badge || "",
-      pkg.extras || "",
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return searchable.includes(q);
+    return packageMatchesSearch(pkg, trimmedSearch);
   });
 
   const sortedPackages = [...filteredPackages].sort((a, b) => (a.price || 0) - (b.price || 0));
@@ -847,22 +875,58 @@ function App() {
   const hasMorePackages = !showAllFromSearch && sortedPackages.length > packagesVisibleCount;
 
   const filteredProducts = useMemo(() => {
-    const q = (searchQuery || "").trim().toLowerCase();
-    if (!q) return [...products];
-    return products.filter((p) => {
-      const searchable = [
-        p.sku,
-        p.name,
-        (p.tags || []).join(" "),
-        p.description,
-        String(p.price ?? ""),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(q);
+    if (!trimmedSearch) return [...products];
+    return products.filter((p) => productMatchesSearch(p, trimmedSearch));
+  }, [products, trimmedSearch]);
+
+  const globalSearchGroups = useMemo(() => {
+    if (!trimmedSearch) return [];
+    const groups = [];
+
+    const productsByTag = {};
+    products
+      .filter((p) => productMatchesSearch(p, trimmedSearch))
+      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999))
+      .forEach((p) => {
+        const tag = (p.tags && p.tags.length > 0 ? p.tags[0] : null) || "מוצרים";
+        if (!productsByTag[tag]) productsByTag[tag] = [];
+        productsByTag[tag].push(p);
+      });
+    Object.entries(productsByTag).forEach(([tag, items]) => {
+      groups.push({ id: `products-${tag}`, type: "products", label: tag, items: items.slice(0, 10) });
     });
-  }, [products, searchQuery]);
+
+    SEARCH_PACKAGE_GROUPS.forEach(({ key, label }) => {
+      const items = packages
+        .filter((pkg) => pkg.category === key && packageMatchesSearch(pkg, trimmedSearch))
+        .sort((a, b) => (a.price || 0) - (b.price || 0))
+        .slice(0, 10);
+      if (items.length) {
+        groups.push({ id: `packages-${key}`, type: "packages", category: key, label, items });
+      }
+    });
+
+    return groups;
+  }, [packages, products, trimmedSearch]);
+
+  const goToSearchResult = (group, item) => {
+    setSearchOpen(false);
+    if (group.type === "products") {
+      setProductsVisibleCount(Math.max(products.length, 999));
+      setTimeout(() => {
+        const el = document.getElementById(`product-${item.id || ""}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        else document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+      }, 150);
+      return;
+    }
+    setActiveTab(group.category || "all");
+    setActiveCarrier("all");
+    setPackagesVisibleCount(Math.max(packages.length, 999));
+    setTimeout(() => {
+      document.getElementById("packages")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+  };
 
   const sortedProducts = useMemo(
     () => [...filteredProducts].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)),
@@ -992,28 +1056,95 @@ function App() {
           </div>
         )}
 
-        {/* פאנל חיפוש – בתוך ה-nav כדי להישאר sticky */}
+        {/* פאנל חיפוש + תוצאות מיד מתחת לשורת החיפוש */}
         {searchOpen && (
-          <div className="bg-white border-t border-gray-100 py-3 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto flex items-center gap-2">
-              <input
-                autoFocus
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Escape" && setSearchOpen(false)}
-                placeholder="חיפוש לפי שם מוצר, חבילה או מק״ט..."
-                className="flex-1 rounded-xl border border-gray-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition"
-              />
-              <button
-                type="button"
-                onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
-                className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-lg hover:bg-slate-200 transition"
-                title="סגור חיפוש"
-                aria-label="סגור חיפוש"
-              >
-                ×
-              </button>
+          <div className="bg-white border-t border-gray-100 py-3 px-4 sm:px-6 lg:px-8 shadow-sm">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Escape" && setSearchOpen(false)}
+                  placeholder="חיפוש לפי שם מוצר, חבילה, סים או מק״ט..."
+                  className="flex-1 rounded-xl border border-gray-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition"
+                  aria-label="חיפוש באתר"
+                  aria-expanded={trimmedSearch.length > 0}
+                  aria-controls="search-results-panel"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                  className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-lg hover:bg-slate-200 transition"
+                  title="סגור חיפוש"
+                  aria-label="סגור חיפוש"
+                >
+                  ×
+                </button>
+              </div>
+
+              {trimmedSearch.length > 0 && (
+                <div
+                  id="search-results-panel"
+                  className="mt-3 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden max-h-[min(60vh,480px)] overflow-y-auto"
+                  role="listbox"
+                  aria-label="תוצאות חיפוש"
+                >
+                  {globalSearchGroups.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-slate-500 text-sm">
+                      לא נמצאו תוצאות עבור &quot;{searchQuery.trim()}&quot;
+                    </p>
+                  ) : (
+                    globalSearchGroups.map((group) => (
+                      <div key={group.id} className="border-b border-slate-100 last:border-b-0">
+                        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
+                          <span className="text-sm font-bold text-[#1e3a5f]">{group.label}</span>
+                          <span className="text-xs text-slate-400">{group.items.length} תוצאות</span>
+                        </div>
+                        <ul>
+                          {group.items.map((item) => {
+                            const isProduct = group.type === "products";
+                            const thumb = isProduct
+                              ? ((item.images && item.images[0]) || item.imageUrl || null)
+                              : (item.logoUrl || null);
+                            const title = item.name || "";
+                            const subtitle = isProduct
+                              ? [item.sku, item.price != null ? `₪${formatPrice(item.price)}` : ""].filter(Boolean).join(" · ")
+                              : [
+                                  getProviderDisplayName(item),
+                                  PACKAGE_CATEGORY_LABELS[item.category] || "",
+                                  item.price != null ? `₪${formatPrice(item.price)}` : "",
+                                ].filter(Boolean).join(" · ");
+                            return (
+                              <li key={item.id || `${group.id}-${title}`}>
+                                <button
+                                  type="button"
+                                  role="option"
+                                  onClick={() => goToSearchResult(group, item)}
+                                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-blue-50/60 transition text-right border-b border-slate-50 last:border-b-0"
+                                >
+                                  {thumb ? (
+                                    <img src={thumb} alt="" className="w-10 h-10 rounded-lg object-contain bg-slate-50 border border-slate-100 flex-shrink-0" />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-400">
+                                      {isProduct ? <Smartphone size={18} /> : <Signal size={18} />}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold text-slate-800 truncate">{title}</div>
+                                    {subtitle && <div className="text-xs text-slate-500 truncate mt-0.5">{subtitle}</div>}
+                                  </div>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
